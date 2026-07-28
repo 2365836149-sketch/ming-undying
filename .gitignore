@@ -1,0 +1,9 @@
+.DS_Store
+*.numbers
+*icloud*
+装备清单.csv
+装备清单.*
+items-catalog.md
+assets/_archive/
+assets/_preview_all.*
+assets/items/refs/

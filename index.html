@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>长生劫 · 赴京</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Press+Start+2P&family=ZCOOL+XiaoWei&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css?v=fx89" />
+</head>
+<body>
+  <!-- 开场：明朝卷轴 -->
+  <div id="opening" class="opening" aria-live="polite">
+    <div class="ink-wash"></div>
+    <div class="mountains" aria-hidden="true"></div>
+    <div class="scroll">
+      <div class="scroll-inner">
+        <p class="seal" id="op-seal">敕</p>
+        <h1 class="op-title" id="op-title">长生劫</h1>
+        <p class="op-sub" id="op-sub">赴京篇</p>
+        <div class="op-text" id="op-text"></div>
+        <div class="op-actions">
+          <button type="button" class="brush-btn" id="op-next">继续</button>
+          <button type="button" class="brush-btn ghost" id="op-skip">跳过</button>
+        </div>
+      </div>
+    </div>
+    <p class="op-progress" id="op-progress"></p>
+  </div>
+
+  <!-- 游戏本体 -->
+  <div id="game" class="game" hidden>
+    <aside class="rail">
+      <header class="brand">
+        <p class="eyebrow">大明 · 灾异录</p>
+        <h1>长生劫</h1>
+        <div class="hero-bust">
+          <img
+            id="hero-art"
+            class="hero-art"
+            src="assets/portraits/player.png?v=wanderer"
+            alt="江湖浪人"
+            draggable="false"
+          />
+        </div>
+      </header>
+      <section class="panel">
+        <h2>状态</h2>
+        <pre class="mono" id="st-status"></pre>
+      </section>
+      <section class="panel">
+        <h2>装备</h2>
+        <pre class="mono" id="st-gear"></pre>
+      </section>
+      <section class="panel">
+        <h2>行囊 <button type="button" class="brush-btn ghost inv-open" id="btn-bag">打开</button></h2>
+        <pre class="mono" id="st-inv"></pre>
+      </section>
+      <section class="panel map-panel">
+        <h2>赴京图</h2>
+        <div class="minimap-wrap">
+          <div id="minimap" class="minimap" aria-label="可点击小地图"></div>
+          <p id="map-tip" class="map-tip" hidden></p>
+        </div>
+      </section>
+      <div class="rail-btns">
+        <button type="button" class="brush-btn ghost" id="btn-save">存档</button>
+        <button type="button" class="brush-btn ghost" id="btn-load">读档</button>
+        <button type="button" class="brush-btn ghost" id="btn-sfx" title="开关音效">音效开</button>
+        <button type="button" class="brush-btn ghost" id="btn-opening">重看序章</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="scene-head">
+        <div>
+          <p class="kicker" id="mode-label">行路</p>
+          <h2 id="loc-title"></h2>
+        </div>
+        <p class="clock" id="clock"></p>
+      </header>
+      <div class="stage-panel" id="stage-panel">
+        <div class="stage-body">
+          <div class="battle-portrait" id="btl-portrait" hidden>
+            <div class="btl-foes" id="btl-foes"></div>
+            <div class="btl-art-wrap" id="btl-art-wrap">
+              <img class="btl-art" id="btl-art" alt="" draggable="false" />
+              <div class="wound-layer" id="btl-wounds" aria-hidden="true"></div>
+              <div class="fx-layer" id="btl-fx" aria-hidden="true"></div>
+              <div class="slash-layer" id="btl-slash"></div>
+            </div>
+            <p class="btl-msg" id="btl-msg"></p>
+          </div>
+          <div class="journal" id="journal"></div>
+        </div>
+        <div class="slash-timer" id="slash-timer" hidden aria-hidden="true">
+          <div class="slash-timer-fill" id="slash-timer-fill"></div>
+        </div>
+      </div>
+      <section class="cmd">
+        <h3 id="cmd-title">行事</h3>
+        <div id="commands"></div>
+      </section>
+    </main>
+  </div>
+
+  <p class="toast" id="toast" hidden></p>
+
+  <div id="death-screen" class="death-screen" hidden>
+    <div class="death-veil"></div>
+    <div class="death-panel">
+      <p class="death-brand">长生劫 · 赴京</p>
+      <h1 class="death-title">雪盖上来</h1>
+      <p class="death-text" id="death-text"></p>
+      <div class="death-actions">
+        <button type="button" class="brush-btn" id="death-retry">再走一遭</button>
+        <button type="button" class="brush-btn ghost" id="death-load">读取存档</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="screen-fx" class="screen-fx" aria-hidden="true">
+    <div class="screen-fx-blur"></div>
+    <div class="screen-fx-tint"></div>
+    <div class="screen-fx-ghost"></div>
+    <svg class="screen-fx-veins" viewBox="0 0 200 120" preserveAspectRatio="none" aria-hidden="true">
+      <!-- 巩膜血丝：自四周向中心延伸分叉，中央留白 -->
+      <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <g stroke="#7a1c1c" opacity="0.78">
+          <path d="M0 24 C18 26,28 32,36 44 C42 54,46 58,52 60" stroke-width="0.7" />
+          <path d="M36 44 C40 40,48 38,54 42" stroke-width="0.4" />
+          <path d="M0 48 C14 50,24 56,30 66 C34 74,36 78,38 82" stroke-width="0.55" />
+          <path d="M30 66 C36 64,44 66,48 72" stroke-width="0.35" />
+          <path d="M0 78 C16 76,26 70,34 62 C40 56,44 54,50 54" stroke-width="0.6" />
+          <path d="M0 96 C12 90,20 82,26 72" stroke-width="0.45" />
+          <path d="M22 0 C24 14,30 24,40 32 C48 38,52 40,56 40" stroke-width="0.65" />
+          <path d="M40 32 C44 28,52 26,58 30" stroke-width="0.35" />
+          <path d="M48 0 C50 12,58 20,68 26 C74 30,78 30,82 28" stroke-width="0.5" />
+          <path d="M78 0 C80 10,88 16,98 18" stroke-width="0.4" />
+          <path d="M200 28 C182 30,172 36,164 48 C158 58,154 62,148 64" stroke-width="0.7" />
+          <path d="M164 48 C160 44,152 42,146 46" stroke-width="0.4" />
+          <path d="M200 52 C186 54,176 60,170 70 C166 78,164 82,162 86" stroke-width="0.55" />
+          <path d="M170 70 C164 68,156 70,152 76" stroke-width="0.35" />
+          <path d="M200 82 C184 80,174 74,166 66 C160 60,156 58,150 58" stroke-width="0.6" />
+          <path d="M178 0 C176 14,170 24,160 32 C152 38,148 40,144 40" stroke-width="0.65" />
+          <path d="M160 32 C156 28,148 26,142 30" stroke-width="0.35" />
+          <path d="M152 0 C150 12,142 20,132 26 C126 30,122 30,118 28" stroke-width="0.5" />
+          <path d="M28 120 C30 106,36 96,46 88 C54 82,58 80,62 80" stroke-width="0.65" />
+          <path d="M46 88 C50 92,58 94,64 90" stroke-width="0.35" />
+          <path d="M56 120 C58 108,66 100,76 94 C82 90,86 90,90 92" stroke-width="0.5" />
+          <path d="M172 120 C170 106,164 96,154 88 C146 82,142 80,138 80" stroke-width="0.65" />
+          <path d="M154 88 C150 92,142 94,136 90" stroke-width="0.35" />
+          <path d="M144 120 C142 108,134 100,124 94 C118 90,114 90,110 92" stroke-width="0.5" />
+        </g>
+        <g stroke="#a83232" opacity="0.45">
+          <path d="M0 36 C10 38,16 44,20 52 C22 58,24 60,28 60" stroke-width="0.3" />
+          <path d="M200 40 C190 42,184 48,180 56 C178 62,176 64,172 64" stroke-width="0.3" />
+          <path d="M36 0 C38 8,44 14,52 18 C56 20,58 20,60 18" stroke-width="0.28" />
+          <path d="M164 0 C162 8,156 14,148 18 C144 20,142 20,140 18" stroke-width="0.28" />
+          <path d="M40 120 C42 112,48 106,56 102 C60 100,62 100,64 102" stroke-width="0.28" />
+          <path d="M160 120 C158 112,152 106,144 102 C140 100,138 100,136 102" stroke-width="0.28" />
+          <path d="M52 60 C56 56,62 56,66 60" stroke-width="0.22" />
+          <path d="M148 64 C144 60,138 60,134 64" stroke-width="0.22" />
+          <path d="M62 80 C66 76,72 76,76 80" stroke-width="0.22" />
+          <path d="M138 80 C134 76,128 76,124 80" stroke-width="0.22" />
+        </g>
+      </g>
+    </svg>
+    <div class="screen-fx-flash"></div>
+  </div>
+
+  <script src="data.js?v=fx89"></script>
+  <script src="sfx.js?v=fx89"></script>
+  <script src="combat.js?v=fx89"></script>
+  <script src="firearm.js?v=fx89"></script>
+  <script src="combat-ui.js?v=fx89"></script>
+  <script src="opening.js?v=fx89"></script>
+  <script src="game.js?v=fx89"></script>
+</body>
+</html>
