@@ -1180,3 +1180,44 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   .game:has(.stage-panel.in-combat) { grid-template-rows: 34vh minmax(0, 1fr) auto; }
   .journal { line-height: 1.55; }
 }
+
+/* ================= 排版不被长文字撑开（英文尤其） ================= */
+/* 格子一律可缩到 0：内容再长也只在格子里换行/省略，不把页面挤出屏幕 */
+.scroll-col, .stage-col, .journal, section.cmd, .scene-head, .hud, .hud-bars, .hud .vital-row { min-width: 0; }
+button.cmd { min-width: 0; overflow-wrap: anywhere; }
+button.cmd .sub { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cmd-row { grid-template-columns: repeat(auto-fill, minmax(min(118px, 100%), 1fr)); }
+@media (max-width: 860px) {
+  .game { grid-template-columns: minmax(0, 1fr); }
+  .cmd-row, .cmd-row.battle-cmds { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 420px) {
+  .hud .vital-bar { width: clamp(56px, 22vw, 96px); }
+}
+
+/* 赴京图节点跟着图的宽度等比缩放（窄屏上不再撑出分区） */
+.map-sheet .minimap { container-type: inline-size; }
+.map-sheet .map-node { width: clamp(30px, 9.2cqw, 60px); min-height: 0; aspect-ratio: 60 / 54; padding: 2px 1px 1px; gap: 1px; justify-content: center; }
+.map-sheet .map-node img { width: clamp(14px, 4.4cqw, 28px); height: clamp(14px, 4.4cqw, 28px); }
+.map-sheet .map-name { font-size: clamp(9px, 1.9cqw, 12px); letter-spacing: 0; line-height: 1.1; }
+.map-region-name { font-size: clamp(9px, 1.9cqw, 12px); }
+/* 手机：赴京图不硬塞进屏宽，保持能看清的大小，左右滑动 */
+@media (max-width: 700px) {
+  .map-sheet { padding: 10px 10px 12px; box-sizing: border-box; max-width: 100%; min-width: 0; }
+  .map-sheet .minimap-wrap { max-width: 100%; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
+  .map-sheet .map-head { flex-wrap: wrap; }
+  .map-drawer { grid-template-columns: minmax(0, 1fr); padding: 8px; }
+  .map-sheet .minimap { width: 640px; max-height: none; }
+}
+
+/* 英文物品名长：格子里最多折两行，还长就省略号 */
+body.lang-en .bag-name, body.lang-en .codex-name, body.lang-en .trade-name {
+  white-space: normal; font-size: 10px; line-height: 1.15; letter-spacing: 0;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; word-break: break-word;
+}
+.bag-name, .codex-name { text-overflow: ellipsis; }
+body.lang-en .map-sheet .map-name {
+  white-space: normal; text-align: center; word-break: break-word; max-width: 100%;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+body.lang-en .map-sheet .map-node { aspect-ratio: auto; min-height: clamp(30px, 8.6cqw, 54px); }

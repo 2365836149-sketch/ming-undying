@@ -8,7 +8,13 @@
 
   function open() {
     drawer.hidden = false;
-    requestAnimationFrame(() => drawer.classList.add("is-visible"));
+    requestAnimationFrame(() => {
+      drawer.classList.add("is-visible");
+      /* 手机上图可横向滑动：把当前地点滚到中间 */
+      const wrap = minimap && minimap.parentElement;
+      const here = minimap && minimap.querySelector(".map-node.here");
+      if (wrap && here && wrap.scrollWidth > wrap.clientWidth) wrap.scrollLeft = here.offsetLeft - wrap.clientWidth / 2;
+    });
   }
   function close() {
     drawer.classList.remove("is-visible");

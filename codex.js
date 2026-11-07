@@ -148,7 +148,8 @@ const Codex = (() => {
       b.type = "button";
       b.className = "codex-tab" + (t.id === tab ? " on" : "");
       const n = t.list().filter((e) => known(t.id, e)).length;
-      b.textContent = `${t.name} ${n}/${t.list().length}`;
+      /* 名字和计数分开放，各自翻译，免得撞上别的模板 */
+      b.innerHTML = `<span>${t.name}</span> <span>${n}/${t.list().length}</span>`;
       b.onclick = () => { tab = t.id; pick = null; paint(); };
       tabs.appendChild(b);
     });
