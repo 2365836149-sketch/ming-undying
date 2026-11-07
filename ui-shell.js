@@ -58,3 +58,27 @@
     I18N.start();
   }
 })();
+
+/* ---------- 字号：自动（手机小、电脑中）/ 小 / 中 / 大，记在本机 ---------- */
+(() => {
+  const KEY = "ming-fs";
+  const seg = document.getElementById("fs-seg");
+  const pick = () => { try { return localStorage.getItem(KEY) || "auto"; } catch (_) { return "auto"; } };
+  function apply() {
+    const want = pick();
+    const size = want === "auto" ? (Math.min(window.innerWidth, window.innerHeight) <= 560 ? "s" : "m") : want;
+    document.documentElement.dataset.fs = size;
+    if (seg) seg.querySelectorAll("[data-fs]").forEach((b) => b.classList.toggle("on", b.dataset.fs === want));
+  }
+  if (seg) {
+    seg.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-fs]");
+      if (!b) return;
+      try { localStorage.setItem(KEY, b.dataset.fs); } catch (_) {}
+      apply();
+      window.dispatchEvent(new Event("resize"));
+    });
+  }
+  window.addEventListener("resize", () => { if (pick() === "auto") apply(); });
+  apply();
+})();

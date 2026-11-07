@@ -936,7 +936,13 @@ I18N.add({
  "伤害": "Damage",
  "耗体": "Stamina",
  "防护": "Defense",
- "压体力": "Stamina cap"
+ "压体力": "Stamina cap",
+ "字号": "Text size",
+ "自动": "Auto",
+ "小": "Small",
+ "中": "Medium",
+ "大": "Large",
+ "音量与字号": "Volume and text size"
 });
 
 I18N.addPatterns([

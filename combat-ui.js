@@ -859,7 +859,8 @@ const CombatUI = (() => {
     pic.className = "bag-card-pic";
     const v = makeItemVisual(selected.id, 0);
     pic.appendChild(v);
-    if (v.tagName === "IMG") fitOpaqueIntoBox(v, 88, 88);
+    /* 图框大小随屏幕变（手机上只有 56px），按实际大小摆图，免得露半截 */
+    if (v.tagName === "IMG") requestAnimationFrame(() => fitOpaqueIntoBox(v, pic.clientWidth || 88, pic.clientHeight || 88));
     const info = document.createElement("div");
     info.className = "bag-card-info";
     const name = document.createElement("h3");

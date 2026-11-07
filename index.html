@@ -9,7 +9,7 @@
   <title>长生劫 · 赴京</title>
   <link rel="preload" href="fonts/fusion-pixel-12px.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="style.css?v=px3" />
-  <link rel="stylesheet" href="pixel.css?v=fm1" />
+  <link rel="stylesheet" href="pixel.css?v=mb1" />
   <!-- 内联兜底：style.css 没加载时，至少藏起血丝、开场不至于散架 -->
   <style id="boot-css">
     html, body { margin: 0; background: #0c0a08; }
@@ -191,7 +191,7 @@
           <button type="button" class="dock-btn" id="btn-save">存档</button>
           <button type="button" class="dock-btn" id="btn-load">读档</button>
           <button type="button" class="dock-btn" id="btn-sfx" title="开关音效">音效开</button>
-          <button type="button" class="dock-btn" id="btn-settings" title="音量设置">设置</button>
+          <button type="button" class="dock-btn" id="btn-settings" title="音量与字号">设置</button>
           <button type="button" class="dock-btn" id="btn-codex">图鉴</button>
           <button type="button" class="dock-btn" id="btn-opening">序章</button>
           <button type="button" class="dock-btn" id="btn-restart">新游戏</button>
@@ -218,7 +218,7 @@
   <div id="settings-modal" class="settings-modal" hidden>
     <div class="settings-panel">
       <header class="settings-head">
-        <h2>音量设置</h2>
+        <h2>设置</h2>
         <button type="button" class="px-btn" id="settings-close">关闭</button>
       </header>
       <div class="settings-body">
@@ -232,6 +232,15 @@
           <input type="range" id="vol-sfx" min="0" max="100" value="22" class="settings-slider" />
           <span class="settings-val" id="vol-sfx-val">22</span>
         </label>
+        <div class="settings-row">
+          <span class="settings-label">字号</span>
+          <div class="settings-seg" id="fs-seg">
+            <button type="button" class="px-btn" data-fs="auto">自动</button>
+            <button type="button" class="px-btn" data-fs="s">小</button>
+            <button type="button" class="px-btn" data-fs="m">中</button>
+            <button type="button" class="px-btn" data-fs="l">大</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -260,7 +269,7 @@
   </div>
 
   <script src="i18n.js?v=i4"></script>
-  <script src="i18n-en.js?v=fm1"></script>
+  <script src="i18n-en.js?v=mb1"></script>
   <script src="data.js?v=ic4"></script>
   <script src="icon-bounds.js?v=ic4"></script>
   <script src="enemy-hit-points.js?v=lc1"></script>
@@ -270,10 +279,10 @@
   <script src="score.js?v=lc1"></script>
   <script src="combat.js?v=fm1"></script>
   <script src="firearm.js?v=fm1"></script>
-  <script src="combat-ui.js?v=ic2"></script>
+  <script src="combat-ui.js?v=mb1"></script>
   <script src="opening.js?v=i1"></script>
   <script src="codex.js?v=lc1"></script>
   <script src="game.js?v=fm1"></script>
-  <script src="ui-shell.js?v=i1"></script>
+  <script src="ui-shell.js?v=mb1"></script>
 </body>
 </html>

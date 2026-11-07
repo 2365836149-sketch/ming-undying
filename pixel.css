@@ -1161,3 +1161,22 @@ body.travelling #commands, body.travelling .minimap, body.travelling .dock { poi
 .map-sheet .map-lines { z-index: 1; }
 .map-sheet .map-node { z-index: 2; width: 60px; min-height: 52px; padding: 3px 2px 2px; }
 .map-sheet .map-node img { width: 28px; height: 28px; }
+
+/* ================= 字号档位（设置里选；自动 = 手机用小号） ================= */
+/* 手机浏览器会自作主张放大文字，关掉它，字号只听设置的 */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+:root[data-fs="s"] { --fs-s: 11px; --fs: 14px; --fs-l: 19px; }
+:root[data-fs="m"] { --fs-s: 12px; --fs: 18px; --fs-l: 24px; }
+:root[data-fs="l"] { --fs-s: 14px; --fs: 21px; --fs-l: 28px; }
+.settings-seg { display: flex; gap: 6px; flex-wrap: wrap; }
+.settings-seg .px-btn { padding: 6px 12px 8px !important; font-size: var(--fs-s) !important; }
+.settings-seg .px-btn.on { background: var(--cinnabar) !important; color: var(--paper) !important; }
+
+/* 手机：场景图压矮一点、按钮区最多占三分之一，给日志留地方 */
+@media (max-width: 560px) {
+  .game { grid-template-rows: 26vh minmax(0, 1fr) auto; }
+  section.cmd { max-height: 36%; overflow-y: auto; }
+  /* 打仗时立绘要大，场景区还按原来的高度 */
+  .game:has(.stage-panel.in-combat) { grid-template-rows: 34vh minmax(0, 1fr) auto; }
+  .journal { line-height: 1.55; }
+}
