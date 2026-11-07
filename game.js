@@ -214,8 +214,13 @@
   function hunger(n) {
     const H = WORLD.hunger;
     const before = S.satiety;
+    /* 渴染深了饿得快：那股饥渴压不住 */
+    n = n * corrFx(S).hunger;
     S.satiety = Math.max(0, S.satiety - n);
-    if (before > H.hungry && S.satiety <= H.hungry) log("肚里空了，脚下发虚，力气回得慢。", "sys");
+    if (before > H.hungry && S.satiety <= H.hungry) {
+      log("肚里空了，脚下发虚，力气回得慢。", "sys");
+      if (typeof SFX !== "undefined") SFX.play("stomach");
+    }
     if (before > H.starving && S.satiety <= H.starving) log("饿得眼前发黑，再不吃东西，人就要撑不住了。", "sys");
     if (S.satiety <= H.starving && n > 0) {
       S.hp = Math.max(1, S.hp - H.starveHp);
@@ -225,10 +230,14 @@
   }
 
   /** 吃一样东西 */
+  /* 喝的（清水、黄酒、女儿红）咕咚一声，其余嚼的声音 */
+  const DRINKS = ["water", "huangjiu", "nuerhong"];
   function eat(id) {
     const it = WORLD.items[id];
+    if (typeof SFX !== "undefined") SFX.play(DRINKS.includes(id) ? "drink" : "eat");
     S.satiety = Math.min(WORLD.maxSatiety, S.satiety + (it.fill || 0));
-    S.hp = Math.min(WORLD.maxHp, S.hp + (it.hp || 0));
+    /* 渴染深了，吃下去的东西不怎么养人 */
+    S.hp = Math.min(WORLD.maxHp, S.hp + Math.round((it.hp || 0) * corrFx(S).food));
     if (it.stamina) S.stamina = Math.min(maxStaminaOf(S), S.stamina + it.stamina);
     if (typeof Codex !== "undefined") Codex.see("item", id);
   }
@@ -440,6 +449,7 @@
         if (bagHas(S, id)) return;
         S.evidence.push(id);
         toast(`收入证物袋：${(WORLD.items[id] || {}).name || id}`);
+        if (typeof SFX !== "undefined") SFX.play("evidence");
         if (id === "edict") unlockValleyFromEdict();
         return;
       }
@@ -679,6 +689,7 @@
   function dropItem(uid) {
     const hit = findPieceAnywhere(S, uid);
     if (!hit) return;
+    if (typeof SFX !== "undefined") SFX.play("drop_item");
     const piece = hit.piece;
     const it = WORLD.items[piece.id];
     if (it && it.noDrop) {
@@ -883,6 +894,33 @@
     return true;
   }
 
+  /* 各地的环境声：城外风雪、京城低鸣夹着远处的呻吟、皇城死寂的低音、西山大风；打仗时压低 */
+  const AMBIENCE = {
+    road_inn: "amb_blizzard", village: "amb_blizzard", lugou: "amb_blizzard", post: "amb_blizzard", barracks: "amb_blizzard",
+    canal: "amb_blizzard", temple: "amb_blizzard", xishan_temple: "amb_blizzard", valley: "amb_blizzard",
+    gate: "amb_drone", barbican: "amb_drone", inner: "amb_drone", yamen: "amb_drone", caishikou: "amb_drone", yaoju: "amb_drone", gulou: "amb_drone",
+    palace: "amb_drone", yuyaofang: "amb_drone", throne: "amb_drone",
+  };
+  /* 偶尔冒一声的点缀：乌鸦、冰裂、钟、呻吟 */
+  const AMB_SPOT = {
+    road_inn: "amb_crows", village: "amb_crows", lugou: "ice_crack", canal: "ice_crack", temple: "temple_bell", xishan_temple: "temple_bell",
+    inner: "moan", caishikou: "moan", barbican: "moan", gate: "moan",
+  };
+  let ambSpotT = 0;
+  function syncAmbience() {
+    if (typeof SFX === "undefined" || !SFX.setAmbience) return;
+    if (S.mode === "ending") return SFX.setAmbience(null);
+    SFX.setAmbience(AMBIENCE[S.loc] || "amb_blizzard", S.mode === "combat" ? 0.35 : 1);
+    if (!ambSpotT) {
+      const tickSpot = () => {
+        ambSpotT = setTimeout(tickSpot, 14000 + Math.random() * 22000);
+        const n = AMB_SPOT[S.loc];
+        if (n && S.mode === "explore" && !document.hidden) SFX.play(n, { gain: n === "amb_crows" ? 0.35 : 0.5 });
+      };
+      ambSpotT = setTimeout(tickSpot, 9000);
+    }
+  }
+
   function syncVitalFx() {
     const fx = document.getElementById("screen-fx");
     if (!fx) return;
@@ -894,11 +932,20 @@
     }
     fx.classList.toggle("critical", critical);
     document.body.classList.toggle("hp-critical", critical);
-    /* 渴染不显示数值，只让眼前发花：17 起轻、50 起重、83 起最重 */
-    const corr = S.corruption || 0;
-    const tier = corr >= 83 ? 3 : corr >= 50 ? 2 : corr >= 17 ? 1 : 0;
+    /* 渴染不显示数值：画面四周泛暗红（躁 33 起、狂 67 起），标题栏写一个字的档位 */
+    const tier = corrTier(S);
+    /* 心火升了一档：心口咚的一下 */
+    if (S.corrTierSaid != null && tier > S.corrTierSaid && typeof SFX !== "undefined") SFX.play("heartbeat");
+    S.corrTierSaid = tier;
+    syncAmbience();
     document.body.classList.remove("corr-1", "corr-2", "corr-3");
     if (tier && S.mode !== "ending") document.body.classList.add("corr-" + tier);
+    const tag = document.getElementById("corr-tag");
+    if (tag) {
+      tag.textContent = `心火 ${CORR_TIERS[tier].name}`;
+      tag.dataset.tier = String(tier);
+      tag.title = ["心里还清明", "喉中发痒：出手更狠，吃东西不大养人", "饥渴压不住：出手狠、杀一个回一口气，活人都躲着你"][tier];
+    }
     /* 血越少，暗角越浓、血滴越多 */
     const hurt = critical ? Math.min(1, Math.max(0.25, (50 - S.hp) / 40)) : 0;
     fx.style.setProperty("--hurt", hurt.toFixed(2));
@@ -1412,7 +1459,10 @@
     S.mode = "combat";
     S.combat = c;
     if (typeof BGM !== "undefined") {
-      if (BGM.setBoss) BGM.setBoss(c.boss);
+      /* 头目战换一套慢而重的节奏，丹陛最终战最急 */
+      const ELITE = ["canal_guard", "gate_chain", "temple_priest", "barbican_soldiers", "caishikou_exec", "yaoju_doctor", "gulou_watch", "xishan_monks", "yyf_guard", "valley_pack"];
+      if (BGM.setFight) BGM.setFight(c.boss ? "final" : ELITE.includes(id) ? "elite" : "normal");
+      else if (BGM.setBoss) BGM.setBoss(c.boss);
       BGM.play("battle");
       if (BGM.sting) BGM.sting(c.boss ? "boss" : "encounter");
     }
@@ -1455,9 +1505,6 @@
         log("吸魂：你夺回一口气。", "sys");
       }
       const corruptBefore = S.corruption;
-      if (t.enemies.length >= 2 && c.id !== "throne_bite") {
-        S.corruption += 17;
-      }
       tick(2);
       hunger(WORLD.hunger.fight);
       log(`敌已倒下。`);
@@ -1955,6 +2002,8 @@
       panel.appendChild(veil);
     }
     travelling = true;
+    /* 路上踩雪的几步 */
+    [0, 480, 960].forEach((ms) => setTimeout(() => { if (typeof SFX !== "undefined") SFX.play("step"); }, ms));
     document.body.classList.add("travelling");
     if (veil) {
       veil.querySelector(".travel-to").textContent = `往${WORLD.locs[link.to].name}去`;
@@ -1975,6 +2024,7 @@
   }
 
   function doMove(link) {
+    S.npcFlash = null;
     const chance = ambushChance(S.elapsed);
     const riskyFight =
       link.risky &&
@@ -2082,13 +2132,14 @@
           return;
         }
         tick(8);
+        if (typeof SFX !== "undefined") SFX.play("campfire");
         const food = cheapestFood();
         if (food) {
           const it = WORLD.items[food.id];
           bagRemoveUid(S, food.uid);
           eat(food.id);
           hunger(WORLD.hunger.rest);
-          S.hp = Math.min(WORLD.maxHp, S.hp + 17);
+          S.hp = Math.min(WORLD.maxHp, S.hp + Math.round(17 * corrFx(S).food));
           S.stamina = Math.min(maxStaminaOf(S), S.stamina + 50);
           log(`你靠着残墙坐下，就着${isNight(S.elapsed) ? "夜色" : "雪光"}吃了${it.name}，气血稍复。`);
         } else {
@@ -2258,14 +2309,23 @@
     return fill >= 20 ? 3 : fill >= 10 ? 2 : 1;
   };
 
+  /** 渴染到了「狂」：活人一看你的眼睛就躲 */
+  function shunned(text) {
+    if (corrTier(S) < 2) return false;
+    log(text);
+    render();
+    return true;
+  }
+
   function openTrade() {
+    if (shunned("老兵抬头看了你一眼，手里的火绳枪对准了你：别过来。你眼珠子红成那样，我没东西换给你。")) return;
     let box = document.getElementById("trade-modal");
     if (!box) {
       document.body.insertAdjacentHTML("beforeend", `
 <div id="trade-modal" class="trade-modal" hidden>
   <div class="trade-panel">
     <header class="codex-head"><h2>守库的老兵</h2><p class="codex-count" id="trade-left"></p><button type="button" class="px-btn" id="trade-close">走了</button></header>
-    <p class="trade-say" id="trade-say"></p>
+    <div class="trade-who"><img class="trade-face" src="assets/portraits/npc_veteran.png" alt="" draggable="false" /><p class="trade-say" id="trade-say"></p></div>
     <div class="trade-list" id="trade-list"></div>
   </div>
 </div>`);
@@ -2320,6 +2380,7 @@
       toast("行囊放不下的，先放在待收区");
     } else toast(`换得火药、垫片、弹丸各 ${n}`);
     log(`你把${name}递给老兵，他接过去就啃，从库里拎出火药、垫片、弹丸各${n}份给你。`);
+    if (typeof SFX !== "undefined") SFX.play("trade");
     if (typeof SFX !== "undefined") SFX.play("bag_place");
     panels();
     const left = TRADE_STOCK - S.veteranSold;
@@ -2332,6 +2393,8 @@
       if (!S.flags.has("officer_saved")) {
         acts.push(
           btn("掀开地窖", "里头的人要吃的", () => {
+            if (typeof SFX !== "undefined") SFX.play("creak");
+            if (shunned("地窖里那汉子刚抬起头，看清你的脸，便尖叫一声缩进最深处，再怎么叫也不肯出来。")) return;
             const food = cheapestFood();
             if (!food) {
               log("地窖里蜷着个穿千总号衣的汉子，饿得只剩一把骨头，张着嘴要吃的。你身上没有吃的，只得把板子又盖了回去。");
@@ -2371,7 +2434,10 @@
     if (S.loc === "caishikou" && S.flags.has("caishikou_cleared") && !S.flags.has("butcher_thanked")) {
       acts.push(
         btn("敲肉铺的门", "", () => {
+          if (typeof SFX !== "undefined") SFX.play("door_open");
+          if (shunned("门缝里那张老脸只看了你一眼，「砰」地把门板顶死了，里头传来搬东西抵门的声响。")) return;
           S.flags.add("butcher_thanked");
+          S.npcFlash = { id: "butcher", loc: S.loc };
           const fid = Math.random() < 0.5 ? "sauce_meat" : "cured_meat";
           log(`门缝里探出一张老脸，朝刑台那边望了望，长出一口气：那东西叫你砍了？我守着这铺子，夜夜怕它来撬门。说着塞出一包${WORLD.items[fid].name}，又把门闩上了。`);
           beginLootSession([fid], { reason: "pickup" });
@@ -2391,6 +2457,7 @@
         btn("照方熬药", missing.length ? `还缺${missing.map((id) => WORLD.items[id].name).join("、")}` : "蜂蜜、黄酒、红枣各一", () => {
           if (need.some((id) => !bagHas(S, id))) return;
           need.forEach((id) => removeBagId(id));
+          if (typeof SFX !== "undefined") SFX.play("brew");
           tick(4);
           log("你在屋角那口锅底下生了火，照方子把蜂蜜、黄酒、红枣一并熬了。熬到汤色发黑，屋里一股苦甜的气味，你把药汤灌进一只瓷瓶里。");
           beginLootSession(["antidote"], { reason: "pickup" });
@@ -2401,8 +2468,40 @@
     }
   }
 
+  /* ---------- NPC 立绘：人在场时站进场景窗 ---------- */
+  const NPCS = {
+    child: { name: "荒村孩童", img: "assets/portraits/npc_child.png" },
+    officer: { name: "地窖里的千总", img: "assets/portraits/npc_officer.png" },
+    butcher: { name: "肉铺老汉", img: "assets/portraits/npc_butcher.png" },
+    veteran: { name: "守库的老兵", img: "assets/portraits/npc_veteran.png" },
+  };
+  /** 此刻这里有谁：孩童、千总要先找着；肉铺老汉只在开门那一下露面；老兵在清完鼓楼后一直守着 */
+  function npcHere() {
+    if (S.mode !== "explore") return null;
+    if (S.npcFlash && S.npcFlash.loc === S.loc) return S.npcFlash.id;
+    if (S.loc === "village" && S.flags.has("hear_child") && !S.flags.has("left_child")) return "child";
+    if (S.loc === "barracks" && S.flags.has("officer_saved") && !S.flags.has("officer_done")) return "officer";
+    if (S.loc === "gulou" && S.flags.has("gulou_cleared")) return "veteran";
+    return null;
+  }
+  function syncNpc() {
+    const box = document.getElementById("npc-stage");
+    if (!box) return;
+    const id = npcHere();
+    const n = id && NPCS[id];
+    if (!n) { box.hidden = true; box.dataset.id = ""; return; }
+    if (box.dataset.id !== id) {
+      document.getElementById("npc-art").src = n.img;
+      document.getElementById("npc-name").textContent = n.name;
+      box.dataset.id = id;
+      box.classList.remove("enter"); void box.offsetWidth; box.classList.add("enter");
+    }
+    box.hidden = false;
+  }
+
   function render() {
     panels();
+    syncNpc();
     renderMap();
     paintJournal();
     if (S.mode === "ending") {

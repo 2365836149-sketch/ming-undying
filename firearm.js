@@ -4,7 +4,7 @@ const FIREARM = {
   aimFlashMs: 220, /* 扣火后火绳嘶嘶声的长度（sfx aim_beep） */
   aimFlashCount: 2,
   shootWindowMs: 5000,
-  hitMult: [1, 0.7], /* [打头, 打身子] 伤害倍率 */
+  hitMult: [1, 0.75], /* [打头, 打身子] 伤害倍率 */
 };
 
 const FIREARM_SPEC = {

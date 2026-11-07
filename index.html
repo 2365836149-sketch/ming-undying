@@ -9,7 +9,7 @@
   <title>长生劫 · 赴京</title>
   <link rel="preload" href="fonts/fusion-pixel-12px.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="style.css?v=px3" />
-  <link rel="stylesheet" href="pixel.css?v=en7" />
+  <link rel="stylesheet" href="pixel.css?v=pr4" />
   <!-- 内联兜底：style.css 没加载时，至少藏起血丝、开场不至于散架 -->
   <style id="boot-css">
     html, body { margin: 0; background: #0c0a08; }
@@ -115,6 +115,7 @@
               <div class="loc-backdrop-vignette"></div>
               <p class="loc-backdrop-name" id="loc-backdrop-name"></p>
             </div>
+            <div class="npc-stage" id="npc-stage" hidden><img id="npc-art" alt="" draggable="false" /><p class="npc-name" id="npc-name"></p></div>
             <div class="btl-foes" id="btl-foes"></div>
             <div class="btl-art-wrap" id="btl-art-wrap">
               <div class="foe-back-row" id="foe-back-row" aria-hidden="true"></div>
@@ -162,6 +163,7 @@
           </div>
         </div>
         <p class="clock" id="clock"></p>
+        <p class="corr-tag" id="corr-tag" data-tier="0"></p>
         <pre class="mono" id="st-status" hidden></pre>
       </header>
       <div class="journal" id="journal"></div>
@@ -269,20 +271,20 @@
   </div>
 
   <script src="i18n.js?v=i4"></script>
-  <script src="i18n-en.js?v=en3"></script>
-  <script src="data.js?v=ic4"></script>
+  <script src="i18n-en.js?v=pr1"></script>
+  <script src="data.js?v=dp1"></script>
   <script src="icon-bounds.js?v=ic4"></script>
   <script src="enemy-hit-points.js?v=lc1"></script>
   <script src="asset-loader.js?v=px1"></script>
-  <script src="sfx.js?v=fx110"></script>
+  <script src="sfx.js?v=fs1"></script>
   <script src="bgm.js?v=fx105"></script>
-  <script src="score.js?v=lc1"></script>
-  <script src="combat.js?v=fm1"></script>
-  <script src="firearm.js?v=fm1"></script>
-  <script src="combat-ui.js?v=mb1"></script>
+  <script src="score.js?v=au1"></script>
+  <script src="combat.js?v=dp1"></script>
+  <script src="firearm.js?v=dp1"></script>
+  <script src="combat-ui.js?v=pr4"></script>
   <script src="opening.js?v=i1"></script>
-  <script src="codex.js?v=en3"></script>
-  <script src="game.js?v=fm1"></script>
-  <script src="ui-shell.js?v=en3"></script>
+  <script src="codex.js?v=au1"></script>
+  <script src="game.js?v=fs1"></script>
+  <script src="ui-shell.js?v=au1"></script>
 </body>
 </html>

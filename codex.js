@@ -150,7 +150,7 @@ const Codex = (() => {
       const n = t.list().filter((e) => known(t.id, e)).length;
       /* 名字和计数分开放，各自翻译，免得撞上别的模板 */
       b.innerHTML = `<span>${t.name}</span> <span>${n}/${t.list().length}</span>`;
-      b.onclick = () => { tab = t.id; pick = null; paint(); };
+      b.onclick = () => { tab = t.id; pick = null; if (typeof SFX !== "undefined") SFX.play("page"); paint(); };
       tabs.appendChild(b);
     });
 
@@ -217,6 +217,7 @@ const Codex = (() => {
 
   function open() {
     ensureDom();
+    if (typeof SFX !== "undefined") SFX.play("book_open");
     pick = null;
     paint();
     const m = document.getElementById("codex-modal");
@@ -225,6 +226,7 @@ const Codex = (() => {
 
   function close() {
     const m = document.getElementById("codex-modal");
+    if (m && !m.hidden && typeof SFX !== "undefined") SFX.play("book_close");
     if (m) m.hidden = true;
   }
 

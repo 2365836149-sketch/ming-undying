@@ -942,7 +942,28 @@ I18N.add({
  "小": "Small",
  "中": "Medium",
  "大": "Large",
- "音量与字号": "Volume and text size"
+ "音量与字号": "Volume and text size",
+ "心里还清明": "Your mind is still clear",
+ "喉中发痒：出手更狠，吃东西不大养人": "Your throat itches: you strike harder, but food does you less good",
+ "饥渴压不住：出手狠、杀一个回一口气，活人都躲着你": "The hunger has the upper hand: you strike hard and every kill restores you, but the living shun you",
+ "老兵抬头看了你一眼，手里的火绳枪对准了你：别过来。你眼珠子红成那样，我没东西换给你。": "The veteran looks up and levels his matchlock at you. \"Stay back. With eyes that red, I've nothing to trade you.\"",
+ "地窖里那汉子刚抬起头，看清你的脸，便尖叫一声缩进最深处，再怎么叫也不肯出来。": "The man in the cellar looks up, sees your face, shrieks and scrambles into the deepest corner. No calling will bring him out.",
+ "门缝里那张老脸只看了你一眼，「砰」地把门板顶死了，里头传来搬东西抵门的声响。": "The old face at the crack takes one look at you and slams the door shut. You hear furniture being dragged against it.",
+ "平": "Calm",
+ "躁": "Restless",
+ "狂": "Frenzied",
+ "肉身": "Flesh",
+ "怕斩": "weak to slashing",
+ "披甲": "Armored",
+ "怕砸、火器": "weak to blunt and firearms",
+ "疾行": "Swift",
+ "怕刺": "weak to thrusts",
+ "（正克它）": "(effective)",
+ "（不对路）": "(ineffective)",
+ "荒村孩童": "The Village Child",
+ "地窖里的千总": "The Captain in the Cellar",
+ "肉铺老汉": "The Old Butcher",
+ "完美！": "Perfect!"
 });
 
 I18N.addPatterns([
@@ -1347,6 +1368,10 @@ I18N.addPatterns([
   "{0} items are still in the staging area. If you close the pack they stay at {1}, and you can come back for them anytime."
  ],
  [
+  "心火 {0}",
+  "Heart-fire: {0}"
+ ],
+ [
   "战利品：{0}",
   "Spoils: {0}"
  ],
@@ -1509,6 +1534,10 @@ I18N.addPatterns([
  [
   "背上{0}",
   "On back: {0}"
+ ],
+ [
+  "血腥气冲上来，你竟觉得精神一振。气血 +{0}。",
+  "The reek of blood rushes up, and you feel strangely invigorated. Vitality +{0}."
  ],
  [
   "行囊 {0} / {1} 格",

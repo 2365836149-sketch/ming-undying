@@ -417,7 +417,85 @@ const SFX = (() => {
     bag_open: "bag_open.mp3", /* 开背包 */
     bag_place: "bag_place.mp3", /* 放物品 */
     loot: "loot.mp3", /* 拾取 */
+    /* 以下取自 Kenney RPG Audio / Interface Sounds（CC0，见 CREDITS.md） */
+    pick_up: "pick_up.mp3", /* 拿起物品 */
+    drop_item: "drop_item.mp3", /* 放到地上 / 丢弃 */
+    rotate: "rotate.mp3", /* 旋转 */
+    shove: "shove.mp3", /* 挤开别的东西 */
+    armor_cloth: "armor_cloth.mp3", /* 穿布甲 */
+    armor_metal: "armor_metal.mp3", /* 穿铁甲、戴铁盔 */
+    rack: "rack.mp3", /* 兵器上架 */
+    reload_click: "reload_click.mp3", /* 装填完毕 */
+    gun_empty: "gun_empty.mp3", /* 空膛 */
+    evidence: "evidence.mp3", /* 证物入袋 */
+    book_open: "book_open.mp3", /* 翻开图鉴 */
+    book_close: "book_close.mp3",
+    trade: "trade.mp3", /* 交易递东西 */
+    brew: "brew.mp3", /* 熬药 */
+    creak: "creak.mp3", /* 掀地窖板 */
+    door_open: "door_open.mp3",
+    door_close: "door_close.mp3",
+    ui_confirm: "ui_confirm.mp3",
+    ui_error: "ui_error.mp3", /* 放不下 / 不能做 */
+    ui_toggle: "ui_toggle.mp3",
+    ui_open: "ui_open.mp3",
+    ui_close: "ui_close.mp3",
+    belt: "belt.mp3", /* 收拾行囊 */
+    /* 以下取自 Freesound（CC0，见 CREDITS.md） */
+    eat: "eat.mp3", drink: "drink.mp3", campfire: "campfire.mp3", stomach: "stomach.mp3", heartbeat: "heartbeat.mp3",
+    claw: "claw.mp3", charge_roar: "charge_roar.mp3", lunge: "lunge.mp3", bodyfall: "bodyfall.mp3",
+    blunt_hit: "blunt_hit.mp3", stab: "stab.mp3", armor_hit: "armor_hit.mp3",
+    cart_crash: "cart_crash.mp3", weapon_clatter: "weapon_clatter.mp3", splash: "splash.mp3", sizzle: "sizzle.mp3",
+    big_drum: "big_drum.mp3", puff: "puff.mp3", glass_break: "glass_break.mp3", fire_burst: "fire_burst.mp3",
+    shout: "shout.mp3", chain: "chain.mp3", keys: "keys.mp3", hand_bell: "hand_bell.mp3", gong: "gong.mp3",
+    run: "run.mp3", moan: "moan.mp3", temple_bell: "temple_bell.mp3", ice_crack: "ice_crack.mp3", amb_crows: "amb_crows.mp3",
   };
+  /* 多个变体的：每次随机挑一个，免得听腻 */
+  const SAMPLE_VARIANTS = {
+    draw: ["draw_1.mp3", "draw_2.mp3", "draw_3.mp3"], /* 换兵器拔刀 */
+    page: ["page_1.mp3", "page_2.mp3", "page_3.mp3"], /* 翻页 */
+    step: ["snow_step.mp3"], /* 赶路踩雪（播放时随机变速） */
+    growl: ["growl.mp3", "growl2.mp3"], /* 扑咬前低吼 */
+    parry: ["parry.mp3", "parry2.mp3"], /* 格挡金铁声 */
+  };
+  /* 各音效的默认音量（采样本身响度不一） */
+  const SAMPLE_GAIN = { ui_toggle: 0.6, ui_open: 0.6, ui_close: 0.6, ui_confirm: 0.7, ui_error: 0.6, page: 0.7, step: 0.6, rotate: 0.5, campfire: 0.6, heartbeat: 0.9, moan: 0.5, temple_bell: 0.5, ice_crack: 0.6, gong: 0.8, lunge: 0.7, growl: 0.8 };
+  const variantCache = new Map(); /* name -> AudioBuffer[] */
+  const variantLoading = new Map();
+  function loadVariants(name) {
+    if (variantCache.has(name)) return Promise.resolve(variantCache.get(name));
+    if (variantLoading.has(name)) return variantLoading.get(name);
+    if (location.protocol === "file:") return Promise.resolve(null);
+    const p = (async () => {
+      const c = ensure();
+      if (!c) return null;
+      const bufs = [];
+      for (const f of SAMPLE_VARIANTS[name]) {
+        try {
+          const r = await fetch(SAMPLE_BASE + f);
+          if (r.ok) bufs.push(await c.decodeAudioData(await r.arrayBuffer()));
+        } catch (e) { /* 少一个变体不要紧 */ }
+      }
+      if (bufs.length) variantCache.set(name, bufs);
+      return bufs;
+    })().finally(() => variantLoading.delete(name));
+    variantLoading.set(name, p);
+    return p;
+  }
+  function playBuffer(buf, opts, name) {
+    const c = ensure();
+    if (!c || !unlocked || !buf) return false;
+    const t0 = c.currentTime;
+    const src = c.createBufferSource();
+    src.buffer = buf;
+    src.playbackRate.value = (opts && opts.rate) || 0.94 + Math.random() * 0.12;
+    const g = c.createGain();
+    g.gain.setValueAtTime(opts && opts.gain != null ? opts.gain : SAMPLE_GAIN[name] != null ? SAMPLE_GAIN[name] : 1, t0);
+    src.connect(g);
+    g.connect(master);
+    src.start(t0);
+    return true;
+  }
 
   /* footstep 变体：每次随机选一个，避免单一声音呆板。
      文件不存在时自动降级到合成。 */
@@ -490,6 +568,7 @@ const SFX = (() => {
   async function preloadAll() {
     const names = Object.keys(SAMPLE_FILES);
     await Promise.all(names.map((n) => loadSample(n)));
+    await Promise.all(Object.keys(SAMPLE_VARIANTS).map((n) => loadVariants(n)));
     await loadFootsteps();
   }
 
@@ -504,7 +583,7 @@ const SFX = (() => {
     src.buffer = buf;
     src.playbackRate.value = opts.rate || 1;
     const g = c.createGain();
-    g.gain.setValueAtTime(opts.gain != null ? opts.gain : 1, t0);
+    g.gain.setValueAtTime(opts.gain != null ? opts.gain : SAMPLE_GAIN[name] != null ? SAMPLE_GAIN[name] : 1, t0);
     src.connect(g);
     g.connect(master);
     if (opts.reverbSend) sendToReverb(g, opts.reverbSend);
@@ -517,6 +596,14 @@ const SFX = (() => {
   async function play(name, opts) {
     if (muted) return;
     unlock();
+
+    /* 多变体：随机挑一个 */
+    if (SAMPLE_VARIANTS[name]) {
+      let bufs = variantCache.get(name);
+      if (!bufs) bufs = await Promise.race([loadVariants(name), new Promise((r) => setTimeout(() => r(null), 200))]);
+      if (bufs && bufs.length) playBuffer(bufs[Math.floor(Math.random() * bufs.length)], opts, name);
+      return;
+    }
 
     /* footstep 特殊处理：随机变体播放 */
     if (name === "footstep") {
@@ -561,6 +648,39 @@ const SFX = (() => {
     synthPlay(name);
   }
 
+  /* ---------- 环境声：每个地方一条低音量的循环底（风雪、殿里的低鸣），换地方时交叉淡化 ---------- */
+  let amb = null; /* { name, src, g } */
+  let ambLevel = 1; /* 战斗中压低 */
+  async function setAmbience(name, level) {
+    if (level != null) ambLevel = level;
+    const c = ensure();
+    if (!c) return;
+    if (amb && amb.name === name) {
+      amb.g.gain.setTargetAtTime(0.32 * ambLevel, c.currentTime, 0.6);
+      return;
+    }
+    const old = amb;
+    amb = null;
+    if (old) {
+      old.g.gain.setTargetAtTime(0.0001, c.currentTime, 0.8);
+      setTimeout(() => { try { old.src.stop(); } catch (_) {} }, 3000);
+    }
+    if (!name || location.protocol === "file:") return;
+    try {
+      const r = await fetch(SAMPLE_BASE + name + ".mp3");
+      if (!r.ok) return;
+      const buf = await c.decodeAudioData(await r.arrayBuffer());
+      const src = c.createBufferSource();
+      src.buffer = buf; src.loop = true;
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.0001, c.currentTime);
+      g.gain.setTargetAtTime(0.32 * ambLevel, c.currentTime, 1.2);
+      src.connect(g); g.connect(master);
+      src.start();
+      amb = { name, src, g };
+    } catch (_) { /* 环境声缺了不要紧 */ }
+  }
+
   function setMuted(v) {
     muted = !!v;
     if (master && ctx) {
@@ -586,5 +706,5 @@ const SFX = (() => {
 
   bindUnlock();
 
-  return { play, unlock, setMuted, setVolume, getVolume, toggleMute, isMuted: () => muted, preloadAll, loadSample };
+  return { play, unlock, setMuted, setVolume, getVolume, toggleMute, isMuted: () => muted, preloadAll, loadSample, setAmbience };
 })();

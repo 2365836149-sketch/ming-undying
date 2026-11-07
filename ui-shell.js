@@ -8,6 +8,7 @@
 
   function open() {
     drawer.hidden = false;
+    if (typeof SFX !== "undefined") SFX.play("page");
     requestAnimationFrame(() => {
       drawer.classList.add("is-visible");
       /* 手机上图可横向滑动：把当前地点滚到中间 */
@@ -81,6 +82,7 @@
       const b = e.target.closest("[data-fs]");
       if (!b) return;
       try { localStorage.setItem(KEY, b.dataset.fs); } catch (_) {}
+      if (typeof SFX !== "undefined") SFX.play("ui_toggle");
       apply();
       window.dispatchEvent(new Event("resize"));
     });

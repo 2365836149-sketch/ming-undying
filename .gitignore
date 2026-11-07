@@ -4,6 +4,7 @@
 !/.gitignore
 !/.nojekyll
 !/README.md
+!/CREDITS.md
 !/index.html
 !/*.js
 !/style.css

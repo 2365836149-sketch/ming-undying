@@ -466,6 +466,23 @@ button.cmd.move:hover { background: var(--paper-deep); }
   80% { transform: translate(calc(var(--shake) * -.4), calc(var(--shake) * .3)); }
 }
 
+/* 普通格挡：被横着推了一下，轻、短 */
+.stage-col.px-nudge { animation: px-nudge .2s steps(4); }
+@keyframes px-nudge {
+  0%, 100% { transform: none; }
+  30% { transform: translateX(-4px); }
+  65% { transform: translateX(2px); }
+}
+/* 完美格挡：猛地往里一顶、定住，再上下弹两下回位 */
+.stage-col.px-punch { animation: px-punch .38s steps(8); }
+@keyframes px-punch {
+  0%, 100% { transform: none; }
+  12%, 30% { transform: scale(1.04); }
+  45% { transform: scale(1.01) translateY(-7px); }
+  62% { transform: translateY(5px); }
+  80% { transform: translateY(-2px); }
+}
+
 /* 火绳枪准星：白=身子，红=头，灰=打不中 */
 .gun-reticle {
   --c: var(--muted);
@@ -614,13 +631,14 @@ body.death-open .sfx-drips { display: none; }
 @keyframes spark { to { transform: translate(-50%, -50%) scale(2.2); opacity: 0; } }
 
 /* ================= 渴染：越深，眼前越花 ================= */
-/* game.js syncVitalFx 按渴染给 body 加 corr-1~3；只糊场景，不碰文字 */
-.stage-panel { transition: filter 1.5s steps(6); }
-body.corr-1 .stage-panel { filter: blur(.6px); }
-body.corr-2 .stage-panel { filter: blur(1.1px) saturate(.85); }
-body.corr-3 .stage-panel { filter: blur(1.6px) saturate(.7) sepia(.25) hue-rotate(-20deg); animation: corr-sway 6s ease-in-out infinite; }
-@keyframes corr-sway { 50% { filter: blur(2.2px) saturate(.7) sepia(.3) hue-rotate(-24deg); } }
-@media (prefers-reduced-motion: reduce) { body.corr-3 .stage-panel { animation: none; } }
+/* 渴染：不糊画面，只在四周泛暗红（game.js syncVitalFx 给 body 加 corr-1 躁 / corr-2 狂） */
+body.corr-1::after, body.corr-2::after {
+  content: ""; position: fixed; inset: 0; z-index: 5; pointer-events: none;
+  box-shadow: inset 0 0 70px 10px rgba(110, 20, 14, .32);
+}
+body.corr-2::after { box-shadow: inset 0 0 110px 24px rgba(130, 18, 12, .5); animation: corr-pulse 3.2s ease-in-out infinite; }
+@keyframes corr-pulse { 50% { box-shadow: inset 0 0 130px 34px rgba(150, 20, 12, .6); } }
+@media (prefers-reduced-motion: reduce) { body.corr-2::after { animation: none; } }
 
 /* ================= 行囊 ================= */
 .bag-modal { background: rgba(13, 12, 10, .86); }
@@ -906,47 +924,54 @@ body.bag-carrying .bag-rotate-fab { display: block; }
   100% { transform: translate3d(-50%, 0, 0) scale(1.02); }
 }
 
-/* 格挡圈：外圈收缩到核心时点它或按空格 = 完美格挡 */
+/* 格挡框：和弱点一样的像素菱形。外框一格一格往里收，收进金色「完美区」时点它或按空格 = 完美格挡 */
 .parry-ring {
-  position: absolute;
-  z-index: 12;
-  width: 150px;
-  height: 150px;
-  padding: 0;
-  border: 0;
-  background: none;
-  transform: translate(-50%, -50%);
-  cursor: pointer;
+  position: absolute; z-index: 12; width: 150px; height: 150px; padding: 0; border: 0; background: none;
+  transform: translate(-50%, -50%); cursor: pointer;
 }
-.parry-ring::before, .parry-ring::after, .parry-ring i {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  border-radius: 50% !important;
+.parry-ring > span { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) rotate(45deg); box-sizing: border-box; }
+/* 完美区：一圈暗金的虚框，告诉你缩到哪里算准 */
+.parry-ring .pr-zone {
+  width: calc(var(--zone, 64px) * .72); height: calc(var(--zone, 64px) * .72);
+  background: rgba(212, 175, 90, .16); box-shadow: inset 0 0 0 3px rgba(212, 175, 90, .75), 0 0 0 2px rgba(0,0,0,.55);
 }
-/* 收缩的外圈 */
-.parry-ring::before {
-  width: 150px;
-  height: 150px;
-  box-shadow: inset 0 0 0 4px var(--paper), 0 0 0 3px rgba(0,0,0,.5);
-  animation: ring-shrink var(--dur) linear forwards;
+/* 外框：白边黑描，一格一格地收缩 */
+.parry-ring .pr-outer {
+  width: 106px; height: 106px;
+  box-shadow: inset 0 0 0 4px var(--paper), 0 0 0 3px rgba(0,0,0,.6);
+  animation: pr-shrink var(--dur) steps(14, end) forwards;
 }
-/* 核心：外圈缩到这里时按 */
-.parry-ring::after {
-  width: 38px;
-  height: 38px;
-  box-shadow: inset 0 0 0 4px #e0503c, 0 0 0 3px rgba(0,0,0,.5);
+/* 核心：一颗朱砂菱形 */
+.parry-ring .pr-core { width: 18px; height: 18px; background: #e0503c; box-shadow: 0 0 0 3px rgba(0,0,0,.6), inset -4px -4px 0 #9a2b1f; }
+@keyframes pr-shrink { from { width: 106px; height: 106px; } to { width: 27px; height: 27px; } }
+/* 进了完美时机：外框变金、快闪，完美区亮起来 */
+.parry-ring.perfect-now .pr-outer { box-shadow: inset 0 0 0 5px #f0c75a, 0 0 0 3px rgba(0,0,0,.6); animation: pr-shrink var(--dur) steps(14, end) forwards, px-blink .18s steps(2) infinite; }
+.parry-ring.perfect-now .pr-zone { background: rgba(240, 199, 90, .32); box-shadow: inset 0 0 0 3px #f0c75a, 0 0 0 2px rgba(0,0,0,.55); }
+.parry-ring.perfect-now .pr-core { background: #f0c75a; box-shadow: 0 0 0 3px rgba(0,0,0,.6), inset -4px -4px 0 #a07a24; }
+
+/* 格挡成功 */
+/* 比爪痕（15）高 */
+.parry-top { position: absolute; z-index: 18; pointer-events: none; }
+.parry-burst { position: absolute; z-index: 13; width: 0; height: 0; pointer-events: none; }
+.parry-burst > * { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%) rotate(45deg); }
+/* 普通：灰白的十字火花，小 */
+.parry-burst b {
+  width: 10px; height: 10px; background: #e8e4dc;
+  box-shadow: 14px 0 0 #a8a294, -14px 0 0 #a8a294, 0 14px 0 #a8a294, 0 -14px 0 #a8a294;
+  animation: pb-spark .42s steps(4) forwards;
 }
-.parry-ring i { width: 10px; height: 10px; background: #e0503c; }
-@keyframes ring-shrink {
-  0% { width: 150px; height: 150px; opacity: .7; }
-  /* 最后约 300ms（windupMs 1150 的 26%）是完美格挡：外圈变红 */
-  73% { box-shadow: inset 0 0 0 4px var(--paper), 0 0 0 3px rgba(0,0,0,.5); }
-  74%, 100% { box-shadow: inset 0 0 0 5px #e0503c, 0 0 0 3px rgba(0,0,0,.5); }
-  100% { width: 38px; height: 38px; opacity: 1; }
-}
+@keyframes pb-spark { to { transform: translate(-50%, -50%) rotate(45deg) scale(2); opacity: 0; } }
+/* 完美：金色火花更大，外加两层菱形冲击波 */
+.parry-burst.perfect b { width: 14px; height: 14px; background: #fff3c4; box-shadow: 20px 0 0 #f0c75a, -20px 0 0 #f0c75a, 0 20px 0 #f0c75a, 0 -20px 0 #f0c75a, 30px 30px 0 #f0c75a, -30px -30px 0 #f0c75a, 30px -30px 0 #f0c75a, -30px 30px 0 #f0c75a; animation-duration: .55s; }
+.parry-burst.perfect i { width: 30px; height: 30px; box-shadow: inset 0 0 0 4px #f0c75a; animation: pb-wave .6s steps(6) forwards; }
+.parry-burst.perfect i + i { animation-delay: .12s; box-shadow: inset 0 0 0 3px #fff3c4; }
+@keyframes pb-wave { from { width: 30px; height: 30px; opacity: 1; } to { width: 190px; height: 190px; opacity: 0; } }
+/* 完美格挡时整个画面金白一闪 */
+.stage-panel.parry-flash::after { content: ""; position: absolute; inset: 0; z-index: 30; pointer-events: none; background: rgba(255, 243, 196, .35); animation: pf-flash .26s steps(3) forwards; }
+@keyframes pf-flash { to { opacity: 0; } }
+/* 飘字 */
+.dmg-pop.parry { color: #e8e4dc; font-size: var(--fs); }
+.dmg-pop.parry-perfect { color: #f0c75a; font-size: calc(var(--fs-l) * 1.25); letter-spacing: .15em; text-shadow: 3px 3px 0 #000; }
 
 /* 新亮起的弱点先弹一下 */
 .weak-spot.fresh { animation: weak-pop .25s steps(3), weak-blink .8s steps(2) .25s infinite; }
@@ -1221,3 +1246,50 @@ body.lang-en .map-sheet .map-name {
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 body.lang-en .map-sheet .map-node { aspect-ratio: auto; min-height: clamp(30px, 8.6cqw, 54px); }
+
+/* 标题栏里的心火档位 */
+.corr-tag { margin: 2px 0 0; font-size: var(--fs-s); letter-spacing: .15em; color: var(--muted); }
+.corr-tag[data-tier="1"] { color: #b0522f; }
+.corr-tag[data-tier="2"] { color: var(--cinnabar); animation: px-blink 1.6s steps(2) infinite; }
+.scene-head .corr-tag { grid-column: 1; grid-row: 3; }
+
+/* ================= 敌人名单：画面底部单独一栏，不压立绘 ================= */
+.stage-panel.in-combat .btl-foes {
+  position: absolute; left: 0; right: 0; top: auto; bottom: 0; transform: none;
+  width: auto; margin: 0; padding: 6px; gap: 4px; z-index: 7;
+  display: grid; grid-template-columns: minmax(0, 1fr);
+  background: #0d0c0a; box-shadow: inset 0 3px 0 var(--ink-soft);
+}
+.stage-panel.in-combat .btl-foes.two-col { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.stage-panel.in-combat .btl-art-wrap { bottom: var(--foes-h, 0px); }
+.stage-panel.in-combat .btl-msg { bottom: var(--foes-h, 0px); }
+/* 每个敌人两层：名字 · 血条 · 血量 ／ 意图 · 蓄力条 · 弱点 */
+.btl-foes .foe-line { padding: 3px 6px; min-width: 0; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-rows: auto auto; row-gap: 2px; column-gap: 6px; }
+.btl-foes .foe-name, .btl-foes .foe-intent, .btl-foes .foe-kind { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.btl-foes .foe-intent { grid-column: 1; grid-row: 2; }
+.btl-foes .foe-charge { grid-column: 2; grid-row: 2; }
+.foe-kind { grid-column: 3; grid-row: 2; max-width: 9em; font-size: 10px; letter-spacing: 0; color: var(--muted); }
+.foe-back { pointer-events: auto; cursor: pointer; }
+.foe-back-row { pointer-events: none; }
+@media (max-width: 860px) {
+  .stage-panel.in-combat .btl-foes { top: auto; width: auto; }
+}
+
+/* ================= NPC 立绘：站在场景窗里，叠在地点图上 ================= */
+/* 半身像在腰下截断：贴着场景窗底边站，截断处藏进画框，底部再渐隐，名牌放左上角 */
+.npc-stage { position: absolute; inset: 0; z-index: 4; display: flex; align-items: flex-end; justify-content: center; pointer-events: none; overflow: hidden; }
+.npc-stage[hidden] { display: none; }
+.npc-stage img {
+  display: block; height: 88%; max-width: 72%; object-fit: contain; object-position: bottom center; image-rendering: pixelated;
+  -webkit-mask-image: linear-gradient(to bottom, #000 82%, transparent 100%); mask-image: linear-gradient(to bottom, #000 82%, transparent 100%);
+}
+.npc-name { position: absolute; left: 12px; top: 12px; margin: 0; padding: 4px 12px 6px; font-size: var(--fs-s); letter-spacing: .2em; color: var(--ink); background: var(--paper); box-shadow: var(--drop); }
+.npc-stage.enter img { animation: npc-in .7s ease-out both; }
+@keyframes npc-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.stage-panel.in-combat .npc-stage { display: none; }
+/* 有 NPC 时地点名牌让开 */
+.battle-portrait:has(.npc-stage:not([hidden])) .loc-backdrop-name { opacity: 0; }
+.trade-who { display: flex; align-items: flex-end; gap: 10px; }
+.trade-face { flex: none; width: 96px; height: 110px; object-fit: contain; object-position: bottom; image-rendering: pixelated; background: #15130f; box-shadow: inset 0 0 0 2px var(--ink-soft); }
+.trade-who .trade-say { flex: 1; }
+@media (max-width: 480px) { .trade-face { width: 64px; height: 76px; } }

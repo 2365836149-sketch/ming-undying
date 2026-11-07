@@ -61,7 +61,7 @@ const COMBAT = {
       title: "官道上",
       intro: "雪窝里爬出一个穿破甲的，胸前补子上还认得出「勇」字，冲着你咧开嘴，满口牙都发了青。",
       hue: 120,
-      enemies: [{ id: "g1", name: "变异勇士", hp: 60, atk: 20 }],
+      enemies: [{ id: "g1", name: "变异勇士", hp: 55, atk: 18 }],
       fleeChance: 0.5,
     },
     village_pack: {
@@ -69,8 +69,8 @@ const COMBAT = {
       intro: "柴门后头挤出两个来，下巴都掉了，还一个劲地嚼，嘴里含含糊糊喊着要吃。",
       hue: 40,
       enemies: [
-        { id: "v1", name: "变异村民", hp: 40, atk: 20 },
-        { id: "v2", name: "变异村民", hp: 60, atk: 20 },
+        { id: "v1", name: "变异村民", hp: 45, atk: 18 },
+        { id: "v2", name: "变异村民", hp: 55, atk: 18 },
       ],
       fleeChance: 0.4,
     },
@@ -78,7 +78,7 @@ const COMBAT = {
       title: "纤道上",
       intro: "一身锦衣破得在风里乱飘，腰牌撞着骨头叮当作响。这人当初奉旨去寻药，如今一口牙倒比谁都尖。",
       hue: 200,
-      enemies: [{ id: "c1", name: "锦衣行尸", hp: 100, atk: 40 }],
+      enemies: [{ id: "c1", name: "锦衣行尸", hp: 90, atk: 25 }],
       fleeChance: 0.35,
       onWinFlags: ["jade_hint", "canal_guard_slain"],
       props: [{ id: "badge", name: "唤腰牌", desc: "它愣在原地", effect: "stun", sec: 4 }],
@@ -87,7 +87,7 @@ const COMBAT = {
       title: "城门",
       intro: "铁链猛地绷直，门轴上拴着的守兵被你惊动，整个人扑将过来，链子在石上拖出一溜火星。",
       hue: 0,
-      enemies: [{ id: "k1", name: "城门尸卫", hp: 120, atk: 40 }],
+      enemies: [{ id: "k1", name: "城门尸卫", hp: 120, atk: 30 }],
       fleeChance: 0.25,
       onWinFlags: ["gate_open"],
       props: [{ id: "chain", name: "扯铁链", desc: "把它拽个趔趄", effect: "stun", sec: 4 }],
@@ -97,9 +97,9 @@ const COMBAT = {
       intro: "鼓楼上铜铃乱响，满街行尸朝你涌了过来，须得先砍近处的，免得叫它们围死。",
       hue: 280,
       enemies: [
-        { id: "s1", name: "街尸", hp: 60, atk: 20 },
-        { id: "s2", name: "街尸", hp: 60, atk: 20 },
-        { id: "s3", name: "轿中尸", hp: 80, atk: 20 },
+        { id: "s1", name: "街尸", hp: 70, atk: 25 },
+        { id: "s2", name: "街尸", hp: 70, atk: 25 },
+        { id: "s3", name: "轿中尸", hp: 90, atk: 28 },
       ],
       fleeChance: 0.45,
       props: [{ id: "bell", name: "摇铜铃", desc: "满街行尸慢下来", effect: "slow", sec: 6 }],
@@ -108,7 +108,7 @@ const COMBAT = {
       title: "丹陛前",
       intro: "「长生」两个字还没说完，龙椅上那人影已到了台阶口，扑面一股腥臭的牙口气。",
       hue: 350,
-      enemies: [{ id: "t1", name: "长生祸首", hp: 160, atk: 40 }],
+      enemies: [{ id: "t1", name: "长生祸首", hp: 260, atk: 45 }],
       fleeChance: 0.2,
       boss: true,
     },
@@ -117,8 +117,8 @@ const COMBAT = {
       intro: "岩缝里爬出两具行尸，浑身裹着谷中寒气，像是被药气养着，怎么也不肯倒。",
       hue: 180,
       enemies: [
-        { id: "vv1", name: "谷中行尸", hp: 60, atk: 20 },
-        { id: "vv2", name: "谷中行尸", hp: 80, atk: 20 },
+        { id: "vv1", name: "谷中行尸", hp: 100, atk: 35 },
+        { id: "vv2", name: "谷中行尸", hp: 120, atk: 38 },
       ],
       fleeChance: 0.35,
       onWinFlags: ["valley_cleared"],
@@ -127,7 +127,7 @@ const COMBAT = {
       title: "废弃道观",
       intro: "偏殿里那穿道袍的转过身来，半边脸还像个人，另半边却露出牙床，手里攥着一张早已发黑的符。",
       hue: 160,
-      enemies: [{ id: "tp1", name: "道士行尸", hp: 100, atk: 40 }],
+      enemies: [{ id: "tp1", name: "道士行尸", hp: 90, atk: 25 }],
       fleeChance: 0.3,
       onWinFlags: ["temple_cleared"],
       props: [{ id: "fire", name: "扬炉灰", desc: "迷了它的眼", effect: "stun", sec: 4 }],
@@ -137,9 +137,9 @@ const COMBAT = {
       intro: "墙根下三具溃兵行尸见了活人便站起身来，其中一个胸口还插着一支箭。",
       hue: 30,
       enemies: [
-        { id: "bs1", name: "溃兵行尸", hp: 60, atk: 20 },
-        { id: "bs2", name: "溃兵行尸", hp: 60, atk: 20 },
-        { id: "bs3", name: "溃兵头目", hp: 100, atk: 40 },
+        { id: "bs1", name: "溃兵行尸", hp: 75, atk: 26 },
+        { id: "bs2", name: "溃兵行尸", hp: 75, atk: 26 },
+        { id: "bs3", name: "溃兵头目", hp: 110, atk: 32 },
       ],
       fleeChance: 0.35,
       onWinFlags: ["barbican_cleared"],
@@ -152,8 +152,8 @@ const COMBAT = {
       intro: "桥那头马蹄乱响，两个溃兵骑在死马背上冲了过来。马早断了气，人也不是活人，冲势却一点不减。",
       hue: 210,
       enemies: [
-        { id: "cr1", name: "溃兵骑手", hp: 70, atk: 25, speed: 1.5, weights: { heavy: 0, howl: 0 } },
-        { id: "cr2", name: "溃兵骑手", hp: 60, atk: 25, speed: 1.5, weights: { heavy: 0, howl: 0 } },
+        { id: "cr1", name: "溃兵骑手", hp: 60, atk: 22, speed: 1.5, weights: { heavy: 0, howl: 0 } },
+        { id: "cr2", name: "溃兵骑手", hp: 55, atk: 22, speed: 1.5, weights: { heavy: 0, howl: 0 } },
       ],
       fleeChance: 0.25,
       onWinFlags: ["lugou_cleared"],
@@ -164,9 +164,9 @@ const COMBAT = {
       intro: "营房里拥出两个披甲的兵，后头还跟着一个骑手，手里一杆镋钯，见了你便催着死马冲来。",
       hue: 30,
       enemies: [
-        { id: "bk1", name: "溃兵行尸", hp: 60, atk: 20 },
-        { id: "bk2", name: "溃兵行尸", hp: 60, atk: 20 },
-        { id: "cr1", name: "溃兵骑手", hp: 80, atk: 30, speed: 1.5, weights: { heavy: 0, howl: 0 } },
+        { id: "bk1", name: "溃兵行尸", hp: 55, atk: 20 },
+        { id: "bk2", name: "溃兵行尸", hp: 55, atk: 20 },
+        { id: "cr1", name: "溃兵骑手", hp: 70, atk: 25, speed: 1.5, weights: { heavy: 0, howl: 0 } },
       ],
       fleeChance: 0.35,
       onWinFlags: ["barracks_cleared"],
@@ -177,8 +177,8 @@ const COMBAT = {
       intro: "刑台上那个光膀子的大汉转过身来，肩上扛着一柄开山大斧，一步一步走下台阶，斧刃在雪上拖出一道沟。",
       hue: 0,
       enemies: [
-        { id: "ex1", name: "刽子手行尸", hp: 150, atk: 45, speed: 0.75, weights: { heavy: 5, bite: 2, claw: 0, howl: 0 } },
-        { id: "sx1", name: "街尸", hp: 50, atk: 20 },
+        { id: "ex1", name: "刽子手行尸", hp: 160, atk: 40, speed: 0.75, weights: { heavy: 5, bite: 2, claw: 0, howl: 0 } },
+        { id: "sx1", name: "街尸", hp: 70, atk: 25 },
       ],
       fleeChance: 0.4,
       onWinFlags: ["caishikou_cleared"],
@@ -189,8 +189,8 @@ const COMBAT = {
       intro: "里屋的帘子一掀，一个背药箱的郎中扶着门框走了出来，满脸脓疮，咳一声便喷出一口黑沫，身后还跟着个病人。",
       hue: 90,
       enemies: [
-        { id: "pd1", name: "患疫郎中", hp: 90, atk: 25, poison: 4 },
-        { id: "pt1", name: "变异村民", hp: 50, atk: 20 },
+        { id: "pd1", name: "患疫郎中", hp: 100, atk: 28, poison: 4 },
+        { id: "pt1", name: "变异村民", hp: 70, atk: 25 },
       ],
       fleeChance: 0.45,
       onWinFlags: ["yaoju_cleared"],
@@ -202,9 +202,9 @@ const COMBAT = {
       hue: 250,
       enemies: [
         {
-          id: "wm1", name: "更夫行尸", hp: 70, atk: 20, howls: 3,
+          id: "wm1", name: "更夫行尸", hp: 90, atk: 25, howls: 3,
           weights: { howl: 4, heavy: 1 },
-          summon: { id: "s1", name: "街尸", hp: 45, atk: 20 },
+          summon: { id: "s1", name: "街尸", hp: 60, atk: 25 },
           callLine: "更夫行尸哐哐敲起铜锣，长街上又有一具{0}循着锣声扑来。",
         },
       ],
@@ -217,8 +217,8 @@ const COMBAT = {
       intro: "殿后转出两个来，一个穿道袍，一个披着采药人的蓑衣，都是从药谷那边下来的。",
       hue: 160,
       enemies: [
-        { id: "mk1", name: "道士行尸", hp: 100, atk: 35 },
-        { id: "mk2", name: "谷中行尸", hp: 70, atk: 25 },
+        { id: "mk1", name: "道士行尸", hp: 130, atk: 38 },
+        { id: "mk2", name: "谷中行尸", hp: 110, atk: 35 },
       ],
       fleeChance: 0.4,
       onWinFlags: ["xishan_cleared"],
@@ -229,8 +229,8 @@ const COMBAT = {
       intro: "丹炉后头爬起一个炼丹的道士，嘴里含着一片金箔，门外又晃进来一个，衣裳是内廷的样式。",
       hue: 45,
       enemies: [
-        { id: "yy1", name: "道士行尸", hp: 110, atk: 40 },
-        { id: "yy2", name: "街尸", hp: 70, atk: 25 },
+        { id: "yy1", name: "道士行尸", hp: 140, atk: 40 },
+        { id: "yy2", name: "街尸", hp: 110, atk: 35 },
       ],
       fleeChance: 0.3,
       onWinFlags: ["yyf_cleared"],
@@ -834,6 +834,46 @@ function slashComboOf(state) {
 
 
 /** 斩影每击伤害 = 武器面板 + 符箓加成（受体力影响） */
+/* ---------- 渴染：双刃剑。平 / 躁 / 狂 三档 ---------- */
+const CORR_TIERS = [
+  { name: "平", dmg: 1, killHeal: 0, food: 1, hunger: 1 },
+  { name: "躁", dmg: 1.1, killHeal: 5, food: 0.7, hunger: 1.2 },
+  { name: "狂", dmg: 1.25, killHeal: 10, food: 0.4, hunger: 1.5 },
+];
+function corrTier(state) {
+  const c = (state && state.corruption) || 0;
+  return c >= 67 ? 2 : c >= 33 ? 1 : 0;
+}
+const corrFx = (state) => CORR_TIERS[corrTier(state)];
+
+/* ---------- 兵器相克：斩克肉身，砸克披甲，刺克疾行，火器破甲 ---------- */
+const ENEMY_KIND = {
+  变异勇士: "flesh", 变异村民: "flesh", 街尸: "flesh", 轿中尸: "flesh", 谷中行尸: "flesh",
+  道士行尸: "flesh", 患疫郎中: "flesh", 更夫行尸: "flesh", 刽子手行尸: "flesh",
+  锦衣行尸: "armor", 城门尸卫: "armor", 溃兵行尸: "armor", 溃兵头目: "armor", 长生祸首: "armor",
+  溃兵骑手: "swift",
+};
+const KIND_INFO = {
+  flesh: { name: "肉身", weak: "怕斩" },
+  armor: { name: "披甲", weak: "怕砸、火器" },
+  swift: { name: "疾行", weak: "怕刺" },
+};
+const MATCHUP = {
+  slash: { flesh: 1.25, armor: 0.6, swift: 1 },
+  blunt: { flesh: 0.9, armor: 1.3, swift: 1 },
+  pierce: { flesh: 1, armor: 0.9, swift: 1.4 },
+  fire: { flesh: 1, armor: 1.2, swift: 1 },
+};
+const enemyKind = (e) => (e && (e.kind || ENEMY_KIND[e.name])) || "flesh";
+function matchupMult(dmgType, e) {
+  const row = MATCHUP[dmgType] || MATCHUP.slash;
+  return row[enemyKind(e)] || 1;
+}
+/** 对这个敌人实际打出的倍率：相克 × 渴染 */
+function hitMultVs(state, dmgType, e) {
+  return matchupMult(dmgType, e) * corrFx(state).dmg;
+}
+
 function slashHitDamage(state) {
   const w = weaponOf(state);
   const c = charmOf(state);

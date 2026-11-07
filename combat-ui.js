@@ -134,7 +134,9 @@ const CombatUI = (() => {
   let active = false;
   let bagSession = { fromBattle: false, reason: "manage" };
 
+  /* 放不下、做不到：顺带一声提示音 */
   function toastBag(msg) {
+    if (/放不下|不可|不能|只放|先把/.test(msg || "") && typeof SFX !== "undefined") SFX.play("ui_error");
     const toastEl = document.getElementById("toast");
     if (!toastEl) return;
     uiFadeShow(toastEl);
@@ -626,6 +628,7 @@ const CombatUI = (() => {
       from: fromKey,
     };
     document.body.classList.add("bag-carrying");
+    if (typeof SFX !== "undefined") SFX.play("pick_up");
     ignorePlaceUntil = performance.now() + 80;
     paintBag();
     updateCarrySnap();
@@ -656,6 +659,7 @@ const CombatUI = (() => {
 
   function rotateCarry() {
     if (!carry) return;
+    if (typeof SFX !== "undefined") SFX.play("rotate");
     carry.rot = (carry.rot + 1) % 4;
     if (carry.from === "staging" && api && api.rotateStagingPiece) api.rotateStagingPiece(carry.uid);
     hoverCell = null;
@@ -889,6 +893,7 @@ const CombatUI = (() => {
     if (snap.zone === "staging") {
       ok = !!api.putToStaging && api.putToStaging(d.uid, d.from);
       if (!ok) { toastBag("此物不可放下"); return false; }
+      if (typeof SFX !== "undefined") SFX.play("drop_item");
       finishCarry(null);
       return true;
     }
@@ -899,6 +904,7 @@ const CombatUI = (() => {
     if (snap.displace) {
       const moved = api.placeDisplacing && api.placeDisplacing(d.uid, d.from, snap.zone, snap.x, snap.y, d.rot);
       if (!moved) { toastBag("此处放不下"); return false; }
+      if (typeof SFX !== "undefined") SFX.play("shove");
       const where = { bag: "行囊", weapon: "兵器架", staging: "待收区" };
       toastBag(moved.map(([n, z]) => `${n}挪到${where[z] || "原处"}`).join(" · "));
       finishCarry(d.uid);
@@ -919,7 +925,7 @@ const CombatUI = (() => {
       syncCarryGhost();
       selectedUid = d.uid;
       selectedFromStaging = false;
-      if (typeof SFX !== "undefined") SFX.play("bag_place");
+      if (!landSound(d.uid) && typeof SFX !== "undefined") SFX.play("bag_place");
       paintBag();
       if (api.onHud) api.onHud();
       return true;
@@ -946,22 +952,43 @@ const CombatUI = (() => {
     syncCarryGhost();
     selectedUid = d.uid;
     selectedFromStaging = false;
-    if (typeof SFX !== "undefined") SFX.play("bag_place");
+    if (!landSound(d.uid) && typeof SFX !== "undefined") SFX.play("bag_place");
     paintBag();
     return true;
   }
 
   /** 放下之后收尾：清掉拖着的状态，选中放下的那件 */
   function finishCarry(uid) {
+    const landed = landSound(uid);
     carry = null;
     hoverCell = null;
     document.body.classList.remove("bag-carrying");
     syncCarryGhost();
     selectedUid = uid;
     selectedFromStaging = false;
-    if (typeof SFX !== "undefined") SFX.play("bag_place");
+    if (typeof SFX !== "undefined") { if (!landed) SFX.play("bag_place"); }
     paintBag();
     if (api.onHud) api.onHud();
+  }
+
+  /** 打中敌人的声音：刀砍肉、鞭棍砸、枪钯刺；刀砍在甲上是「当」的一声 */
+  function hitSoundFor(dmgType, e) {
+    if (dmgType === "blunt") return "blunt_hit";
+    if (dmgType === "pierce") return "stab";
+    return enemyKind(e) === "armor" ? "armor_hit" : "slash_hit";
+  }
+
+  /** 放下时按落点出声：上兵器架「咔」、穿铁甲「哐」、穿布甲「窸窣」，其余照旧 */
+  function landSound(uid) {
+    if (typeof SFX === "undefined" || !uid) return false;
+    const hit = findPieceAnywhere(api.getState(), uid);
+    if (!hit) return false;
+    if (hit.zone === "weapon") SFX.play("rack");
+    else if (hit.zone === "armor") {
+      const it = itemDef(hit.piece.id) || {};
+      SFX.play((it.def || 0) >= 6 || /铁|甲叶|鱼鳞|山文/.test(it.name || "") ? "armor_metal" : "armor_cloth");
+    } else return false;
+    return true;
   }
 
   function onBagPointerMove(e) {
@@ -1013,12 +1040,14 @@ const CombatUI = (() => {
         "foe-line" + (e.hp <= 0 ? " dead" : "") + (i === targetIdx && e.hp > 0 ? " focus" : "");
       d.dataset.idx = String(i);
       const hpPct = Math.max(0, e.hp) / e.maxHp * 100;
+      const kind = KIND_INFO[enemyKind(e)];
       d.innerHTML =
         `<span class="foe-name">${e.name}</span>` +
         `<span class="foe-hp"><i style="width:${hpPct}%"></i></span>` +
         `<span class="foe-num">${Math.max(0, e.hp)}/${e.maxHp}</span>` +
         `<span class="foe-intent"></span>` +
-        `<span class="foe-charge"><i></i></span>`;
+        `<span class="foe-charge"><i></i></span>` +
+        `<span class="foe-kind" title="${kind.name} · ${kind.weak}">${kind.name}·${kind.weak}</span>`;
       if (e.hp > 0) {
         d.onclick = () => {
           if (i === targetIdx || locked()) return;
@@ -1027,6 +1056,10 @@ const CombatUI = (() => {
       }
       box.appendChild(d);
     });
+    box.classList.toggle("two-col", c.enemies.length >= 2);
+    /* 名单在画面底下占多高，立绘区就往上让多少 */
+    const panel = $("stage-panel");
+    if (panel) panel.style.setProperty("--foes-h", box.offsetHeight + 4 + "px");
     if (!doPortrait) return;
     const focus = c.enemies[targetIdx];
     if (focus && focus.hp > 0) paintPortrait(focus);
@@ -1375,7 +1408,7 @@ const CombatUI = (() => {
     );
     void wrap.offsetWidth;
     wrap.classList.add("foe-dying");
-    if (typeof SFX !== "undefined") SFX.play("roar");
+    if (typeof SFX !== "undefined") { SFX.play("growl", { rate: 0.8, gain: 0.6 }); setTimeout(() => SFX.play("bodyfall"), 520); }
     return new Promise((resolve) => {
       setTimeout(() => {
         if (token !== artAnimToken) return resolve();
@@ -1435,6 +1468,15 @@ const CombatUI = (() => {
         el.dataset.id = e.id;
         el.draggable = false;
         el.alt = e.name;
+        /* 直接点后排立绘也能换目标 */
+        el.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          const idx = +el.dataset.idx;
+          if (!active || locked() || phase !== "menu" || idx === targetIdx) return;
+          const cc = api.getState().combat;
+          if (!cc.enemies[idx] || cc.enemies[idx].hp <= 0) return;
+          swapTarget(idx);
+        });
         box.appendChild(el);
       }
       if (!el.src || el.src.indexOf(src.split("?")[0]) === -1) el.src = src;
@@ -1629,7 +1671,7 @@ const CombatUI = (() => {
     if (mode === "shoot") {
       pairs.push(["射击", () => beginAttack(), `余弹 ${gunLoadedCount(s, wid)}`]);
     } else if (mode === "empty") {
-      pairs.push(["射击", () => toastBag("空膛 · 请装填或换兵器"), "无弹"]);
+      pairs.push(["射击", () => { if (typeof SFX !== "undefined") SFX.play("gun_empty"); toastBag("空膛 · 请装填或换兵器"); }, "无弹"]);
     } else {
       pairs.push(["攻击", () => beginAttack(), busy ? "收刀中…" : mode === "smash" ? "倒持砸击" : `连划 ${Math.max(1, slashComboOf(s))} 处`]);
     }
@@ -1685,6 +1727,7 @@ const CombatUI = (() => {
     setMsg(`正在换${(itemDef(next.id) || {}).name || "兵器"}…`);
     showMainMenu();
     clearTimeout(rt.switchT);
+    if (typeof SFX !== "undefined") SFX.play("draw");
     rt.switchT = setTimeout(() => {
       if (!active || phase !== "switch") return;
       if (api.switchHeldWeapon) api.switchHeldWeapon(next.uid);
@@ -1709,6 +1752,7 @@ const CombatUI = (() => {
         g.barrel = 0;
         api.log(`你给${itemDef(wid).name}重新装上药弹。`);
         setMsg("装填完毕");
+        if (typeof SFX !== "undefined") SFX.play("reload_click");
         if (api.onHud) api.onHud();
       }
       afterAction(150);
@@ -1727,10 +1771,16 @@ const CombatUI = (() => {
     setTimeout(() => b.remove(), 2400);
   }
 
+  /* 场景互动各自的声音 */
+  const PROP_SFX = {
+    badge: ["keys"], chain: ["chain"], bell: ["hand_bell"], ash: ["puff"], lime: ["puff"], shout: ["shout"],
+    cart: ["cart_crash"], rack: ["weapon_clatter"], fire: ["puff"], brew: ["splash", "sizzle"], drum: ["big_drum"], lamp: ["glass_break", "fire_burst"],
+  };
   function useProp(p) {
     const c = api.getState().combat;
     if (c.propsUsed.includes(p.id)) return;
     c.propsUsed.push(p.id);
+    if (typeof SFX !== "undefined") (PROP_SFX[p.id] || []).forEach((n, k) => setTimeout(() => SFX.play(n), k * 220));
     if (p.effect === "stun") {
       const e = c.enemies[targetIdx];
       if (e && e.hp > 0) { e.stun = p.sec; e.charge = Math.max(0, e.charge - 0.3); }
@@ -1823,8 +1873,8 @@ const CombatUI = (() => {
     };
   }
 
-  function popDamage(xPct, yPct, text, kind) {
-    const fx = $("btl-fx");
+  function popDamage(xPct, yPct, text, kind, layer) {
+    const fx = layer || $("btl-fx");
     if (!fx) return;
     const d = document.createElement("span");
     d.className = `dmg-pop ${kind || ""}`;
@@ -1844,6 +1894,17 @@ const CombatUI = (() => {
     st.classList.add("px-shake");
     clearTimeout(st._shT);
     st._shT = setTimeout(() => st.classList.remove("px-shake"), 260);
+  }
+
+  /** 格挡专用的震屏：普通是往旁边被推一下，完美是猛地一顿再弹回 */
+  function joltStage(cls, ms) {
+    const st = document.querySelector(".stage-col");
+    if (!st) return;
+    st.classList.remove("px-nudge", "px-punch", "px-shake");
+    void st.offsetWidth;
+    st.classList.add(cls);
+    clearTimeout(st._jT);
+    st._jT = setTimeout(() => st.classList.remove(cls), ms);
   }
 
   /** 打中瞬间的停顿：立绘定格 + 白闪 */
@@ -2057,7 +2118,7 @@ const CombatUI = (() => {
     const wr = $("btl-art-wrap").getBoundingClientRect();
     spawnBlood(((cx - wr.left) / wr.width) * 100, ((cy - wr.top) / wr.height) * 100);
     hitStop(45);
-    if (typeof SFX !== "undefined") SFX.play("slash_hit");
+    if (typeof SFX !== "undefined") SFX.play(hitSoundFor(st.dmgType, api.getState().combat.enemies[st.enemyIdx]));
     if (st.hits >= st.needed) return endStroke("done");
     showSpot(nextSpot(st.mask, st.spots[st.spots.length - 1], st.spots));
   }
@@ -2101,14 +2162,18 @@ const CombatUI = (() => {
     const graze = !st.hits && st.body >= 4;
     if (graze) dealt = Math.max(1, Math.round(base * COMBAT.melee.grazeRate));
     const mult = counterMult();
-    dealt = Math.round(dealt * mult * stunMult(enemy));
+    /* 相克（斩/砸/刺对肉身/披甲/疾行）和渴染都乘进来 */
+    const hitType = smash ? "blunt" : w.dmgType || "slash";
+    const vs = matchupMult(hitType, enemy);
+    dealt = Math.round(dealt * mult * stunMult(enemy) * hitMultVs(s, hitType, enemy));
     if (w.stamina) s.stamina = Math.max(0, s.stamina - w.stamina * Math.max(1, st.hits));
     slashState = null;
 
     if (dealt > 0 && enemy && enemy.hp > 0) {
       if (mult > 1) consumeCounter();
       enemy.hp -= dealt;
-      pushCharge(st.enemyIdx, st.hits ? 0.18 * st.hits : 0.08);
+      /* 刺打疾行的，额外把它的冲势顶回去 */
+      pushCharge(st.enemyIdx, (st.hits ? 0.18 * st.hits : 0.08) * (hitType === "pierce" && enemyKind(enemy) === "swift" ? 1.8 : 1));
       const wr = $("btl-art-wrap").getBoundingClientRect();
       const mid = st.cut[Math.floor(st.cut.length / 2)];
       const xPct = mid ? ((mid.cx - wr.left) / wr.width) * 100 : 50;
@@ -2122,7 +2187,6 @@ const CombatUI = (() => {
       popDamage(xPct, yPct, full && st.needed > 1 ? `尽中 ${dealt}` : String(dealt), full ? "crit" : "");
       pulseArt("hit-flash");
       shakeStage(full ? 10 : 5);
-      if (typeof SFX !== "undefined") SFX.play("wound");
       const line = graze
         ? `刀锋擦身而过，${enemy.name}只受了 ${dealt} 点皮肉伤。`
         : full
@@ -2131,7 +2195,8 @@ const CombatUI = (() => {
             : `一刀正中破绽，${enemy.name}受了${dealt}点伤。`
           : `划中${st.hits}处，还有${st.needed - st.hits}处没够着，${enemy.name}受了${dealt}点伤。`;
       setMsg(graze ? `擦身 · ${dealt}` : full ? `尽中！${dealt} 伤` : `中 ${st.hits}/${st.needed} · ${dealt} 伤`);
-      api.log(mult > 1 ? `趁势反击！${line}` : line);
+      const vsNote = vs > 1.05 ? "（正克它）" : vs < 0.95 ? "（不对路）" : "";
+      api.log((mult > 1 ? `趁势反击！${line}` : line) + vsNote);
     } else {
       setMsg(why === "time" ? "迟了，没能出刀" : "砍空了！");
       api.log(why === "time" ? "时机已过，这一刀没能落下。" : `你挥起${w.name}，却砍了个空。`);
@@ -2327,11 +2392,11 @@ const CombatUI = (() => {
     const { box } = mask;
     const bw = box.x1 - box.x0;
     const bh = box.y1 - box.y0;
-    const headY = box.y0 + bh * 0.3;
-    /* 体力越低手越抖 */
+    /* 打头的判定放宽到上 40%；准星晃得比以前慢四成、幅度小一些，体力越低手越抖 */
+    const headY = box.y0 + bh * 0.4;
     const stam = Math.max(0, Math.min(1, (s.stamina || 0) / (WORLD.maxStamina || 100)));
-    const amp = Math.min(bw, bh) * (0.42 - 0.18 * stam);
-    const speed = (shootState.spec.swaySpeed || 1) * (1.15 - 0.3 * stam);
+    const amp = Math.min(bw, bh) * (0.34 - 0.14 * stam);
+    const speed = (shootState.spec.swaySpeed || 1) * (1.15 - 0.3 * stam) * 0.6;
     const cx0 = box.x0 + bw * 0.5;
     const cy0 = box.y0 + bh * 0.34;
     const ph = [Math.random() * 6, Math.random() * 6, Math.random() * 6, Math.random() * 6];
@@ -2452,7 +2517,7 @@ const CombatUI = (() => {
     const spec = shootState.spec;
     const band = !timeout && shootState.forcedBand != null ? shootState.forcedBand : -1;
     shootState.forcedBand = null;
-    const dmg = typeof shootDamage === "function" ? Math.round(shootDamage(s, band) * counterMult() * stunMult(enemy)) : 0;
+    const dmg = typeof shootDamage === "function" ? Math.round(shootDamage(s, band) * counterMult() * stunMult(enemy) * hitMultVs(s, "fire", enemy)) : 0;
     const spent = consumeFirearmShot(s, wid);
     if (spent && spec.usesZichong) {
       toastBag(`子铳−1 · 空壳退回 · 余 ${gunLoadedCount(s, wid)}`);
@@ -2486,7 +2551,7 @@ const CombatUI = (() => {
         if (typeof SFX !== "undefined") SFX.play("enemy_hit");
         enemy.hp -= dmg;
         if (counterMult() > 1) consumeCounter();
-        pushCharge(shootState.enemyIdx, band === 0 ? 0.4 : 0.2);
+        pushCharge(shootState.enemyIdx, band === 0 ? 0.45 : 0.3);
         if (enemy.hp <= 0) killed = true;
       }
     }
@@ -2569,6 +2634,7 @@ const CombatUI = (() => {
     const chance = fleeChanceOf(c);
     if (Math.random() < chance) {
       setMsg("逃脱！");
+      if (typeof SFX !== "undefined") SFX.play("run");
       api.log("你退进风雪里，身后的啃咬声久久不散。");
       rtStop();
       setTimeout(() => api.onFlee(), 400);
@@ -2704,7 +2770,8 @@ const CombatUI = (() => {
     /* 后排的就在自己位置上蓄势，不闪到前面来 */
     const fig = idx === targetIdx ? $("btl-art-wrap") : backEl(idx);
     if (fig) { fig.classList.remove("windup"); void fig.offsetWidth; fig.classList.add("windup"); }
-    if (typeof SFX !== "undefined") SFX.play("roar");
+    /* 蓄势的声音按招式分：叫人是长嚎、重击是怒吼、其余是低吼 */
+    if (typeof SFX !== "undefined") SFX.play(howl ? "roar" : intentOf(e).heavy ? "charge_roar" : "growl");
     showMainMenu();
   }
 
@@ -2732,10 +2799,16 @@ const CombatUI = (() => {
     ring.style.left = p.x + "%";
     ring.style.top = p.y + "%";
     ring.style.setProperty("--dur", rt.windup.dur + "ms");
-    ring.style.setProperty("--perfect", RT().perfectMs / RT().windupMs);
-    ring.innerHTML = "<i></i>";
+    /* 外框匀速从 150 缩到 38：缩进「完美区」那一圈时正好进入完美时机 */
+    const perfFrac = (RT().perfectMs * (rt.windup.dur / RT().windupMs)) / rt.windup.dur;
+    ring.style.setProperty("--zone", Math.round(38 + (150 - 38) * perfFrac) + "px");
+    ring.innerHTML = '<span class="pr-zone"></span><span class="pr-outer"></span><span class="pr-core"></span>';
     ring.onpointerdown = (ev) => { ev.preventDefault(); ev.stopPropagation(); tryParry(); };
     wrap.appendChild(ring);
+    lastRingAt = p;
+    /* 到了完美时机：外框变金、闪 */
+    clearTimeout(rt.perfT);
+    rt.perfT = setTimeout(() => ring.classList.add("perfect-now"), Math.max(0, rt.windup.dur * (1 - perfFrac)));
   }
 
   function removeRing() {
@@ -2777,7 +2850,7 @@ const CombatUI = (() => {
       c.howled = true;
       c.howls = (c.howls || 0) + 1;
       summonHelp(c, e);
-      if (typeof SFX !== "undefined") SFX.play("roar");
+      if (typeof SFX !== "undefined") SFX.play(e.callLine ? "gong" : "roar");
     } else {
       let dmg = Math.round(e.atk * it.mult);
       const w = weaponOf(s);
@@ -2792,6 +2865,17 @@ const CombatUI = (() => {
       /* 护甲、符箓按比例减；只要被扑中，至少掉一点血 */
       if (dmg > 0) dmg = Math.max(1, Math.round(dmg * damageTakenRate(s)));
       playLunge(idx);
+      if (parry && typeof SFX !== "undefined") {
+        if (parry === "perfect") {
+          /* 完美：清脆的金铁一声，紧跟一记长长的余震铃音 */
+          SFX.play("parry", { rate: 1.18, gain: 1 });
+          setTimeout(() => SFX.play("hand_bell", { rate: 1.7, gain: 0.5, reverbSend: 0.5 }), 35);
+        } else {
+          /* 普通：闷一点，像硬架住，带一下钝响 */
+          SFX.play("parry", { rate: 0.82, gain: 0.75 });
+          SFX.play("blunt_hit", { rate: 1.1, gain: 0.45 });
+        }
+      }
       if (parry === "perfect") {
         c.counter = true;
         c.counterUntil = performance.now() + RT().counterMs;
@@ -2802,13 +2886,15 @@ const CombatUI = (() => {
       }
       if (dmg <= 0) {
         setMsg(parry === "perfect" ? "完美格挡！" : "你架开了。");
-        playParry();
+        playParry(parry);
       } else {
         s.hp -= dmg;
         setMsg(parry ? `格挡 · 气血 -${dmg}` : `${e.name}${it.act} · 气血 -${dmg}`);
         api.log(`${e.name}${it.act}，气血 -${dmg}（剩 ${Math.max(0, s.hp)}/${WORLD.maxHp}）`, "sys");
-        if (parry) playParry(true);
+        if (parry) playParry(parry);
         playPlayerHurt(dmg);
+        /* 被咬中一口，那股饥渴就往里钻一分 */
+        s.corruption = Math.min(100, (s.corruption || 0) + 2);
         /* 患疫的咬中了，那股疫气往身子里钻 */
         if (e.poison) {
           s.corruption = Math.min(100, (s.corruption || 0) + e.poison);
@@ -2833,6 +2919,12 @@ const CombatUI = (() => {
     const c = s.combat;
     const e = c.enemies[idx];
     api.log(`${e.name}倒下。`);
+    /* 渴染深了，杀一个就回一口气 */
+    const drain = corrFx(s).killHeal;
+    if (drain && s.hp < WORLD.maxHp) {
+      s.hp = Math.min(WORLD.maxHp, s.hp + drain);
+      api.log(`血腥气冲上来，你竟觉得精神一振。气血 +${drain}。`, "sys");
+    }
     if (s.hp < WORLD.maxHp && Math.random() < 0.45) {
       s.hp = Math.min(WORLD.maxHp, s.hp + 17);
       api.log("站稳脚步，气血 +17。", "sys");
@@ -2875,7 +2967,8 @@ const CombatUI = (() => {
     void wrap.offsetWidth;
     wrap.classList.add("lunge");
     setTimeout(() => wrap.classList.remove("lunge"), 900);
-    if (typeof SFX !== "undefined") SFX.play("roar");
+    const foe = api.getState().combat && api.getState().combat.enemies[idx == null ? targetIdx : idx];
+    if (typeof SFX !== "undefined") SFX.play(foe && foe.intent === "claw" ? "claw" : "lunge");
   }
 
   function playPlayerHurt(dmg) {
@@ -2907,19 +3000,49 @@ const CombatUI = (() => {
     }
   }
 
-  function playParry(partial) {
-    const fx = $("btl-fx");
-    if (fx) {
-      const spark = document.createElement("span");
-      spark.className = "parry-spark";
-      spark.style.left = 46 + Math.random() * 8 + "%";
-      spark.style.top = 40 + Math.random() * 10 + "%";
-      fx.appendChild(spark);
-      setTimeout(() => spark.remove(), 500);
-      if (!partial) popDamage(50, 36, "架开", "");
+  /** 格挡成功的画面：普通是灰白小火花；完美是金色双层冲击波、画面一闪、顿一下、大字 */
+  let lastRingAt = { x: 50, y: 40 };
+  /** 盖在爪痕上面的一层，框住立绘区，格挡火花和飘字放这里才不会被爪痕挡住 */
+  function parryTopLayer() {
+    const st = document.querySelector(".stage-col");
+    const wrap = $("btl-art-wrap");
+    if (!st || !wrap) return $("btl-fx");
+    let top = st.querySelector(".parry-top");
+    if (!top) {
+      top = document.createElement("div");
+      top.className = "parry-top";
+      st.appendChild(top);
     }
-    shakeStage(4);
-    if (typeof SFX !== "undefined") SFX.play("slash_whiff");
+    const sr = st.getBoundingClientRect();
+    const wr = wrap.getBoundingClientRect();
+    top.style.left = wr.left - sr.left + "px";
+    top.style.top = wr.top - sr.top + "px";
+    top.style.width = wr.width + "px";
+    top.style.height = wr.height + "px";
+    return top;
+  }
+
+  function playParry(kind) {
+    const fx = parryTopLayer();
+    const perfect = kind === "perfect";
+    if (fx) {
+      const burst = document.createElement("span");
+      burst.className = perfect ? "parry-burst perfect" : "parry-burst";
+      burst.style.left = lastRingAt.x + "%";
+      burst.style.top = lastRingAt.y + "%";
+      burst.innerHTML = perfect ? "<i></i><i></i><b></b>" : "<b></b>";
+      fx.appendChild(burst);
+      setTimeout(() => burst.remove(), perfect ? 700 : 450);
+      popDamage(lastRingAt.x, lastRingAt.y - (perfect ? 15 : 8), perfect ? "完美！" : "格挡", perfect ? "parry-perfect" : "parry", fx);
+    }
+    if (perfect) {
+      hitStop(110);
+      joltStage("px-punch", 380);
+      const stage = $("stage-panel");
+      if (stage) { stage.classList.remove("parry-flash"); void stage.offsetWidth; stage.classList.add("parry-flash"); setTimeout(() => stage.classList.remove("parry-flash"), 260); }
+    } else {
+      joltStage("px-nudge", 200);
+    }
   }
 
   function openBag(fromBattle) {
@@ -2933,6 +3056,7 @@ const CombatUI = (() => {
 
   function openBagSession(opts = {}) {
     ensureDom();
+    if (typeof SFX !== "undefined") SFX.play(opts.reason === "loot" || opts.reason === "pickup" ? "loot" : "bag_open");
     selectedUid = null;
     selectedFromStaging = false;
     hoverCell = null;
@@ -2976,6 +3100,7 @@ const CombatUI = (() => {
     const place = (WORLD.locs[s.loc] || {}).short || "这里";
     const box = document.createElement("div");
     box.className = "bag-leave";
+    if (typeof SFX !== "undefined") SFX.play("ui_open");
     box.innerHTML = `
       <div class="bag-leave-card">
         <p>待收区还有 ${n} 件没收进行囊。合上之后，它们会留在${place}，随时回来还能捡。</p>
@@ -3014,6 +3139,7 @@ const CombatUI = (() => {
       return;
     }
     cancelCarry(true);
+    if (typeof SFX !== "undefined") SFX.play("belt");
     const fromBattle = modal.dataset.fromBattle === "1";
     selectedUid = null;
     selectedFromStaging = false;
@@ -3650,7 +3776,13 @@ const CombatUI = (() => {
     menuButtons([]);
     setMsg("敌影逼近…");
     if (api.scrollJournal) api.scrollJournal();
-    _maskResizeHandler = () => applyAlphaMaskToSlashLayer();
+    _maskResizeHandler = () => {
+      applyAlphaMaskToSlashLayer();
+      /* 屏幕宽度变了，名单高度也跟着变 */
+      const box = $("btl-foes");
+      const p = $("stage-panel");
+      if (box && p) p.style.setProperty("--foes-h", box.offsetHeight + 4 + "px");
+    };
     window.addEventListener("resize", _maskResizeHandler);
     whenPortraitReady()
       .then(() => playEnterAnim())

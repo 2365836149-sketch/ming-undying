@@ -32,6 +32,28 @@
     lugou: 1, barracks: 1, xishan_temple: 2, caishikou: 3, yaoju: 3, gulou: 3, yuyaofang: 4,
   };
 
+  /* 地点 → 大区：每个大区一套行路主题（旋律、乐器、密度各不同） */
+  const REGION = {
+    road_inn: "out", village: "out", canal: "out", temple: "out", post: "out", lugou: "out", barracks: "out",
+    gate: "city", barbican: "city", inner: "city", yamen: "city", caishikou: "city", yaoju: "city", gulou: "city",
+    palace: "palace", yuyaofang: "palace", throne: "palace",
+    xishan_temple: "west", valley: "west",
+  };
+  /* 每区的主题句（五声音阶下标），轮着奏，听得出是哪一区 */
+  const THEMES = {
+    /* 城外：古琴为主，箫偶尔接一句，开阔、凄清 */
+    out: { phrases: [[9, 10, 12, 10, 9, 7], [7, 9, 10, 9, 7, 5, 7], [12, 10, 9, 10, 7]], gap: 7, inst: "guqin", step: 0.55, xiao: true },
+    /* 京城：低一个八度，二胡拖长音像呻吟，远处打更的梆子 */
+    city: { phrases: [[4, 5, 4, 2, 0], [5, 7, 5, 4, 2, 4], [2, 4, 5, 4, 1]], gap: 9, inst: "erhu", step: 0.9, bangzi: true, low: true },
+    /* 皇城：编钟慢敲，锣在最低处，和声里夹着小二度 */
+    palace: { phrases: [[5, 7, 8, 7], [8, 10, 9, 7, 5], [3, 5, 4, 2]], gap: 11, inst: "bell", step: 1.3, gong: true, drone2: true },
+    /* 西山：箫在高处长吹，冰凌一样的高音钟点，风大 */
+    west: { phrases: [[12, 14, 15, 14, 12], [10, 12, 14, 12, 10, 9], [14, 15, 17, 15]], gap: 8, inst: "xiao", step: 1.1, ice: true },
+  };
+  let region = "out", themeAt = 0, themeIdx = 0;
+  /* 战斗：normal 寻常、elite 头目（慢而重）、final 丹陛最终战 */
+  let fightKind = "normal";
+
   /* D 羽调五声，下标 0 = D3；渴染深了用 Eb 代替 D/F 之间的音，制造不安 */
   const BASE = 146.83;
   const SCALE = [0, 3, 5, 7, 10];
@@ -228,28 +250,45 @@
     }
   }
 
-  /** 探索：没有拍子，零星的古琴，偶尔一段箫、一声远钟；越紧张越低、越稀、越不和谐 */
+  /** 探索：按大区奏各自的主题句，句与句之间留白；越紧张越低、越稀、越不和谐 */
+  function playPhrase(th, t) {
+    const ph = th.phrases[themeIdx % th.phrases.length];
+    themeIdx++;
+    const shift = (th.low ? -5 : 0) - Math.min(2, Math.floor(tension / 2));
+    ph.forEach((n, k) => {
+      const at = t + k * th.step * rnd(0.9, 1.1);
+      const f = note(n + shift);
+      const last = k === ph.length - 1;
+      if (th.inst === "guqin") guqin(f, at, 0.15, last ? 3.6 : 2.6);
+      else if (th.inst === "erhu") erhu(f, at, 0.05, th.step * (last ? 2.2 : 1.4), musicBus, k ? null : f * 0.9);
+      else if (th.inst === "bell") bell(f, at, 0.07, last ? 6 : 4);
+      else xiao(f, at, 0.07, th.step * (last ? 2.4 : 1.2));
+      /* 紧张或渴染深时，偶尔贴一个小二度 */
+      if ((tension >= 3 || corruptLv > 0.5) && Math.random() < 0.12) guqin(f * Math.pow(2, 1 / 12), at + 0.04, 0.06, 2);
+    });
+    return ph.length * th.step;
+  }
+
   function scheduleExploreStep(t) {
     const step = 0.5;
     if (SOURCE === "synth") {
-      const busy = 0.32 - tension * 0.04;
-      if (Math.random() < busy && t - lastPhraseAt > 1.2) {
-        lastPhraseAt = t;
-        const center = 9 - tension;
-        let i = center + Math.floor(rnd(-2, 3));
-        guqin(note(i), t, 0.16, 3.2);
-        if (Math.random() < 0.35) guqin(note(i + pick([-1, 1, 2])), t + rnd(0.25, 0.5), 0.12, 2.8);
-        // 紧张时偶尔来一个小二度，像有东西不对劲
-        if (tension >= 2 && Math.random() < 0.15 + corruptLv * 0.2) guqin(note(i) * Math.pow(2, 1 / 12), t + 0.05, 0.08, 2.5);
+      const th = THEMES[region] || THEMES.out;
+      if (t >= themeAt) {
+        const len = playPhrase(th, t);
+        themeAt = t + len + th.gap * rnd(0.8, 1.3) + tension * 0.8;
       }
-      if (t - lastXiaoAt > rnd(24, 40) && tension <= 2) {
+      /* 各区的点缀 */
+      if (th.xiao && t - lastXiaoAt > rnd(26, 40) && t < themeAt - 4) {
         lastXiaoAt = t;
         let i = 10 + Math.floor(rnd(-1, 2));
-        [0, 1.4, 2.6].forEach((d, k) => { xiao(note(i), t + d, 0.07, k === 2 ? 2.4 : 1.3); i += pick([-1, 1, -2]); });
+        [0, 1.4, 2.6].forEach((d, k) => { xiao(note(i), t + d, 0.06, k === 2 ? 2.4 : 1.3); i += pick([-1, 1, -2]); });
       }
-      if (t - lastBellAt > rnd(28, 50)) { lastBellAt = t; bell(note(5) / 2, t, 0.05 + tension * 0.01, 6); }
-      // 深处（皇城里）：远处的闷鼓，像什么东西在走动
-      if (tension >= 3 && beat % 8 === 0 && Math.random() < 0.6) { drum(t, 0.14, true); drum(t + 0.55, 0.09, true); }
+      if (th.bangzi && beat % 24 === 0 && Math.random() < 0.7) { bangzi(t, 0.07); bangzi(t + 0.32, 0.05); }
+      if (th.gong && t - lastBellAt > rnd(22, 34)) { lastBellAt = t; bell(note(0) / 4, t, 0.12, 7, musicBus, true); }
+      if (th.ice && Math.random() < 0.025) bell(note(20 + Math.floor(rnd(0, 4))), t, 0.025, 2.5);
+      if (!th.gong && t - lastBellAt > rnd(30, 52)) { lastBellAt = t; bell(note(5) / 2, t, 0.045 + tension * 0.01, 6); }
+      /* 深处：远处的闷鼓，像什么东西在走动 */
+      if (tension >= 3 && beat % 8 === 0 && Math.random() < 0.5) { drum(t, 0.12, true); drum(t + 0.55, 0.08, true); }
     }
     if (dangerLv > 0 && beat % Math.max(2, Math.round(4 - dangerLv * 2)) === 0) heartbeat(t, 0.25 + dangerLv * 0.35);
     beat++;
@@ -258,7 +297,10 @@
 
   /** 战斗：十六分音符网格，140 拍（首领 156）。太鼓切分 + 小节尾滚奏，梆子打反拍，二胡八分音型两小节一换，四小节一声锣 */
   const BATTLE_KICK = [0, 3, 6, 8, 10, 11, 14];
+  /* 头目战：慢而重，每小节一声锣，二胡压低；最终战：最快，太鼓加倍 */
+  const ELITE_KICK = [0, 6, 8, 12];
   function scheduleBattleStep(t) {
+    if (fightKind === "elite") return scheduleEliteStep(t);
     const bpm = boss ? 156 : 140, step = 60 / bpm / 4;
     const s = beat % 16;
     const bar = Math.floor(beat / 16);
@@ -272,6 +314,26 @@
         const k = (s / 2 + (bar % 2) * 8) % motif.length;
         const i = motif[k] + (boss ? -5 : 0);
         erhu(note(i), t, s % 4 === 0 ? 0.1 : 0.075, step * 1.7, musicBus);
+      }
+      if (s === 15 && bar % 2 === 1) motif = pick(BATTLE_MOTIFS);
+    }
+    if (dangerLv > 0 && s % 8 === 0) heartbeat(t, 0.2 + dangerLv * 0.3);
+    beat++;
+    nextAt = t + step;
+  }
+
+  function scheduleEliteStep(t) {
+    const step = 60 / 112 / 4;
+    const s = beat % 16;
+    const bar = Math.floor(beat / 16);
+    if (SOURCE === "synth") {
+      if (s === 0) bell(note(0) / 4, t, 0.16, 3.2, musicBus, true);
+      if (ELITE_KICK.includes(s)) drum(t, s === 0 ? 0.55 : 0.38, true);
+      if (s === 14 || s === 15) drum(t, 0.2, false);
+      if (s % 8 === 4) bangzi(t, 0.1);
+      if (s % 4 === 0) {
+        const k = (s / 4 + (bar % 2) * 4) % motif.length;
+        erhu(note(motif[k] - 5), t, 0.1, step * 3.6, musicBus);
       }
       if (s === 15 && bar % 2 === 1) motif = pick(BATTLE_MOTIFS);
     }
@@ -310,6 +372,7 @@
     // 换场：保留一点余音，从下一拍重新排
     beat = 0; nextAt = ctx.currentTime + 0.15; lastPhraseAt = ctx.currentTime;
     if (name === "battle") { motif = pick(BATTLE_MOTIFS); }
+    if (name === "explore") themeAt = ctx.currentTime + 2.5;
     if (prev === "battle" && name === "explore") lastBellAt = ctx.currentTime;   // 刚打完别马上来钟
     mixPads();
     if (!timer) timer = setInterval(scheduler, 100);
@@ -335,6 +398,9 @@
   function scene(id) {
     if (id === sceneId) return;
     sceneId = id;
+    /* 换了大区：下一句马上用新主题 */
+    const r = REGION[id] || region;
+    if (r !== region) { region = r; themeIdx = 0; if (ctx) themeAt = ctx.currentTime + 1.5; }
     const nt = TENSION[id] !== undefined ? TENSION[id] : tension;
     // 第一次到一个新地方：来一句"到了"
     if (ctx && mode === "explore" && !seenScenes.has(id) && seenScenes.size > 0) sting("arrive");
@@ -350,7 +416,9 @@
     corruptLv = Math.max(0, Math.min(1, frac));
     if (ctx) mixPads();
   }
-  function setBoss(b) { boss = !!b; }
+  function setBoss(b) { boss = !!b; if (boss) fightKind = "final"; }
+  /** normal / elite / final */
+  function setFight(kind) { fightKind = kind || "normal"; boss = kind === "final"; }
 
   /* 浏览器要求用户手势之后才能出声：第一次点击 / 按键时初始化，并补上当前的底乐 */
   const unlock = () => {
@@ -364,5 +432,5 @@
   document.addEventListener("keydown", unlock, { capture: true });
   document.addEventListener("visibilitychange", () => { if (!ctx) return; document.hidden ? ctx.suspend() : ctx.resume(); });
 
-  window.BGM = { play, stop, pause, resume, setVolume, getVolume, preloadAll, scene, danger, corrupt, sting, setBoss, SOURCE };
+  window.BGM = { play, stop, pause, resume, setVolume, getVolume, preloadAll, scene, danger, corrupt, sting, setBoss, setFight, SOURCE };
 })();
