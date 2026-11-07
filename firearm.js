@@ -1,38 +1,31 @@
 /** 火器：弹药、叠堆、管槽、射击结算（v1） */
 
 const FIREARM = {
-  aimFlashMs: 800,
-  aimFlashCount: 4,
+  aimFlashMs: 220, /* 扣火后火绳嘶嘶声的长度（sfx aim_beep） */
+  aimFlashCount: 2,
   shootWindowMs: 5000,
-  hitRadii: [0.05, 0.1, 0.2], /* 相对立绘短边：全额 / 70% / 40% */
-  hitMult: [1, 0.7, 0.4],
+  hitMult: [1, 0.7], /* [打头, 打身子] 伤害倍率 */
 };
 
 const FIREARM_SPEC = {
   sanyan: {
     tubes: 3,
-    rotateDeg: 120,
-    cursorN: 3,
     canMelee: true,
     combatReload: false,
     shotsPerTurn: 1,
     usesZichong: false,
-    smashDmg: 2,
+    smashDmg: 33,
   },
   siyan: {
     tubes: 4,
-    rotateDeg: 90,
-    cursorN: 4,
     canMelee: true,
     combatReload: false,
     shotsPerTurn: 1,
     usesZichong: false,
-    smashDmg: 2,
+    smashDmg: 33,
   },
   xunlei: {
     tubes: 8,
-    rotateDeg: 45,
-    cursorN: 8,
     canMelee: false,
     combatReload: false,
     shotsPerTurn: 1,
@@ -40,8 +33,6 @@ const FIREARM_SPEC = {
   },
   niaochong: {
     tubes: 1,
-    rotateDeg: 0,
-    cursorN: 1,
     canMelee: false,
     combatReload: true,
     shotsPerTurn: 1,
@@ -49,12 +40,26 @@ const FIREARM_SPEC = {
   },
   chedian: {
     tubes: 0,
-    rotateDeg: 0,
-    cursorN: 1,
     canMelee: false,
     combatReload: false,
     shotsPerTurn: 2,
     usesZichong: true,
+  },
+  pentong: {
+    tubes: 1,
+    canMelee: false,
+    combatReload: false,
+    shotsPerTurn: 1,
+    usesZichong: false,
+    consumable: true,
+  },
+  kuaqiang: {
+    tubes: 1,
+    canMelee: false,
+    canSlash: true,
+    combatReload: false,
+    shotsPerTurn: 1,
+    usesZichong: false,
   },
 };
 
@@ -80,6 +85,44 @@ function pieceQty(p) {
   if (!p) return 0;
   if (!isStackable(p.id)) return 1;
   return Math.max(1, p.qty | 0 || 1);
+}
+
+/** 格子上的棋子（忽略 ignoreUid） */
+function pieceAtCell(state, zone, x, y, ignoreUid) {
+  const list = piecesOf(state, zone);
+  for (let i = 0; i < list.length; i++) {
+    const p = list[i];
+    if (ignoreUid && p.uid === ignoreUid) continue;
+    const cells = itemShape(p.id, p.rot | 0);
+    for (let j = 0; j < cells.length; j++) {
+      if (p.x + cells[j][0] === x && p.y + cells[j][1] === y) return p;
+    }
+  }
+  return null;
+}
+
+function canStackMerge(fromPiece, intoPiece) {
+  if (!fromPiece || !intoPiece || fromPiece.uid === intoPiece.uid) return false;
+  if (fromPiece.id !== intoPiece.id) return false;
+  if (!isStackable(fromPiece.id)) return false;
+  if ((fromPiece.fillStep | 0) > 0 || (intoPiece.fillStep | 0) > 0) return false;
+  return pieceQty(intoPiece) < stackMaxOf(intoPiece.id);
+}
+
+/** 把 from 叠进 into；若 from 耗尽则从区里移除。返回是否完全合并 */
+function mergePieceInto(state, zone, fromPiece, intoPiece) {
+  if (!canStackMerge(fromPiece, intoPiece)) return false;
+  const max = stackMaxOf(intoPiece.id);
+  const room = max - pieceQty(intoPiece);
+  const move = Math.min(room, pieceQty(fromPiece));
+  intoPiece.qty = pieceQty(intoPiece) + move;
+  const left = pieceQty(fromPiece) - move;
+  if (left <= 0) {
+    zoneRemoveUid(state, zone, fromPiece.uid);
+    return true;
+  }
+  fromPiece.qty = left;
+  return false;
 }
 
 function bagCountId(state, id) {
@@ -207,7 +250,7 @@ function consumeReloadKit(state) {
 function loadOneTube(state, id, tubeIdx) {
   const g = ensureGunState(state, id);
   const spec = firearmSpec(id);
-  if (!g || !spec || spec.usesZichong) return false;
+  if (!g || !spec || spec.usesZichong || spec.consumable) return false;
   if (tubeIdx < 0 || tubeIdx >= g.tubes.length) return false;
   if (g.tubes[tubeIdx]) return false;
   if (!consumeReloadKit(state)) return false;
@@ -226,23 +269,6 @@ function loadEmptyZichong(state) {
   return bagAddStack(state, "zichong", 1);
 }
 
-/** 默认填装：只自动填多管空膛；空子铳需选手动填（避免刚打完又被药料立刻填回） */
-function autoReloadFirearms(state) {
-  if (state.autoReload === false) return { tubes: 0, zichong: 0 };
-  let tubes = 0;
-  Object.keys(FIREARM_SPEC).forEach((id) => {
-    const spec = FIREARM_SPEC[id];
-    if (spec.usesZichong) return;
-    if (!bagHas(state, id) && equippedId(state, "weapon") !== id) return;
-    const g = ensureGunState(state, id);
-    for (let i = 0; i < g.tubes.length; i++) {
-      if (g.tubes[i]) continue;
-      if (loadOneTube(state, id, i)) tubes += 1;
-      else break;
-    }
-  });
-  return { tubes, zichong: 0 };
-}
 
 function consumeFirearmShot(state, id) {
   const spec = firearmSpec(id);
@@ -276,7 +302,9 @@ function consumeFirearmShot(state, id) {
 function firearmAttackMode(state) {
   const id = equippedId(state, "weapon");
   if (!isFirearm(id)) return "melee";
+  const spec = firearmSpec(id);
   if (gunHasShot(state, id)) return "shoot";
+  if (spec && spec.canSlash) return "slash";
   if (canFirearmMelee(state, id)) return "smash";
   return "empty";
 }
@@ -287,7 +315,7 @@ function shootDamage(state, band) {
   const w = weaponOf(state);
   const c = charmOf(state);
   const base = (w.dmg || 1) + (c.atkBonus || 0);
-  const mult = FIREARM.hitMult[band] || 0;
+  const mult = (FIREARM.hitMult[band] || 0) * staminaDamageMultiplier(state);
   return Math.max(band === 0 ? 1 : 0, Math.round(base * mult));
 }
 
@@ -295,7 +323,8 @@ function smashDamage(state) {
   const id = equippedId(state, "weapon");
   const spec = firearmSpec(id);
   const c = charmOf(state);
-  return (spec && spec.smashDmg ? spec.smashDmg : 1) + (c.atkBonus || 0);
+  const base = (spec && spec.smashDmg ? spec.smashDmg : 1) + (c.atkBonus || 0);
+  return Math.max(1, Math.round(base * staminaDamageMultiplier(state)));
 }
 
 function weaponOfFirearmAware(state) {
@@ -303,5 +332,26 @@ function weaponOfFirearmAware(state) {
   if (!isFirearm(w.id)) return w;
   const left = gunLoadedCount(state, w.id);
   const mode = firearmAttackMode(state);
-  return { ...w, ammo: left, mode, firearm: true };
+  const dmgType = mode === "smash" ? "blunt" : w.dmgType;
+  return { ...w, ammo: left, mode, firearm: true, dmgType };
+}
+
+/**
+ * 一次性火器（喷筒）打空了：扔掉手里这一支。叠着的还有就换上一支新的（装满），
+ * 没有了就从兵器架上拿下，改拿架上别的。返回 "next" / "gone" / null（不是一次性的或还有弹）。
+ */
+function discardSpentConsumable(state, id) {
+  const spec = firearmSpec(id);
+  if (!spec || !spec.consumable || gunHasShot(state, id)) return null;
+  const uid = equippedUid(state, "weapon");
+  const hit = uid && findPieceAnywhere(state, uid);
+  if (!hit) return null;
+  delete state.gunLoad[id];
+  if (pieceQty(hit.piece) > 1) {
+    hit.piece.qty = pieceQty(hit.piece) - 1;
+    ensureGunState(state, id);
+    return "next";
+  }
+  bagRemoveUid(state, uid);
+  return "gone";
 }

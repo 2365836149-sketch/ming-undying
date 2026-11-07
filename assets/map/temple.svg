@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- 废弃道观 — 一个简单的道观庙顶轮廓 -->
+  <rect x="4" y="14" width="24" height="16" rx="1" fill="#8B7D6B" stroke="#5C4A3A" stroke-width="1"/>
+  <polygon points="16,2 2,14 30,14" fill="#A0522D" stroke="#5C4A3A" stroke-width="1"/>
+  <circle cx="16" cy="10" r="3" fill="#D4A574" stroke="#5C4A3A" stroke-width="0.8"/>
+  <line x1="16" y1="7" x2="16" y2="13" stroke="#5C4A3A" stroke-width="0.6"/>
+  <line x1="13" y1="10" x2="19" y2="10" stroke="#5C4A3A" stroke-width="0.6"/>
+  <rect x="12" y="18" width="8" height="12" fill="#3C2A1A" opacity="0.5"/>
+</svg>

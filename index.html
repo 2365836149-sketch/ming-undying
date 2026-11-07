@@ -2,16 +2,90 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Cache-Control" content="no-cache" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#0c0a08" />
   <title>长生劫 · 赴京</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Press+Start+2P&family=ZCOOL+XiaoWei&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=fx89" />
+  <link rel="preload" href="fonts/fusion-pixel-12px.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="style.css?v=px3" />
+  <link rel="stylesheet" href="pixel.css?v=fm1" />
+  <!-- 内联兜底：style.css 没加载时，至少藏起血丝、开场不至于散架 -->
+  <style id="boot-css">
+    html, body { margin: 0; background: #0c0a08; }
+    #screen-fx {
+      position: fixed;
+      inset: 0;
+      z-index: 38;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .opening {
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      box-sizing: border-box;
+    }
+    .opening .scroll {
+      width: min(520px, 92vw);
+      background: #3a3020;
+      border-radius: 4px;
+      padding: 2px;
+    }
+    .opening .scroll-inner {
+      background: #e4dcc8;
+      color: #1a1814;
+      padding: 28px 20px 22px;
+      text-align: center;
+      box-sizing: border-box;
+    }
+    .opening .brush-btn {
+      min-height: 44px;
+      padding: 10px 18px;
+      margin: 4px;
+      border: 1px solid #3d3830;
+      background: transparent;
+      color: #1a1814;
+      font-size: 1rem;
+    }
+    #css-fail-banner {
+      display: none;
+      position: fixed;
+      left: 12px;
+      right: 12px;
+      bottom: 12px;
+      z-index: 9999;
+      padding: 12px 14px;
+      background: #9a2b1f;
+      color: #f5ebe0;
+      font: 14px/1.5 sans-serif;
+      border-radius: 6px;
+    }
+  </style>
 </head>
 <body>
+  <div id="css-fail-banner" role="alert">
+    样式未加载：请用完整文件夹通过 http 打开（勿只传 index.html，也勿直接用文件点开）。电脑执行
+    <code style="color:#ffd">python3 -m http.server 8080</code>
+    后，手机同一 WiFi 访问该地址。
+  </div>
+  <!-- 资源预加载界面 -->
+  <div id="asset-loader" class="asset-loader" aria-live="polite">
+    <div class="asset-loader-inner">
+      <p class="al-title">长生劫</p>
+      <p class="al-status" id="al-status">正在备办行装…</p>
+      <div class="al-bar-wrap">
+        <div class="al-bar" id="al-bar"></div>
+      </div>
+      <p class="al-count" id="al-count"></p>
+    </div>
+  </div>
+
   <!-- 开场：明朝卷轴 -->
-  <div id="opening" class="opening" aria-live="polite">
+  <div id="opening" class="opening" aria-live="polite" hidden>
     <div class="ink-wash"></div>
     <div class="mountains" aria-hidden="true"></div>
     <div class="scroll">
@@ -29,62 +103,21 @@
     <p class="op-progress" id="op-progress"></p>
   </div>
 
-  <!-- 游戏本体 -->
+  <!-- 游戏本体：左场景窗 + 右残卷 + 底栏 -->
   <div id="game" class="game" hidden>
-    <aside class="rail">
-      <header class="brand">
-        <p class="eyebrow">大明 · 灾异录</p>
-        <h1>长生劫</h1>
-        <div class="hero-bust">
-          <img
-            id="hero-art"
-            class="hero-art"
-            src="assets/portraits/player.png?v=wanderer"
-            alt="江湖浪人"
-            draggable="false"
-          />
-        </div>
-      </header>
-      <section class="panel">
-        <h2>状态</h2>
-        <pre class="mono" id="st-status"></pre>
-      </section>
-      <section class="panel">
-        <h2>装备</h2>
-        <pre class="mono" id="st-gear"></pre>
-      </section>
-      <section class="panel">
-        <h2>行囊 <button type="button" class="brush-btn ghost inv-open" id="btn-bag">打开</button></h2>
-        <pre class="mono" id="st-inv"></pre>
-      </section>
-      <section class="panel map-panel">
-        <h2>赴京图</h2>
-        <div class="minimap-wrap">
-          <div id="minimap" class="minimap" aria-label="可点击小地图"></div>
-          <p id="map-tip" class="map-tip" hidden></p>
-        </div>
-      </section>
-      <div class="rail-btns">
-        <button type="button" class="brush-btn ghost" id="btn-save">存档</button>
-        <button type="button" class="brush-btn ghost" id="btn-load">读档</button>
-        <button type="button" class="brush-btn ghost" id="btn-sfx" title="开关音效">音效开</button>
-        <button type="button" class="brush-btn ghost" id="btn-opening">重看序章</button>
-      </div>
-    </aside>
-
-    <main class="main">
-      <header class="scene-head">
-        <div>
-          <p class="kicker" id="mode-label">行路</p>
-          <h2 id="loc-title"></h2>
-        </div>
-        <p class="clock" id="clock"></p>
-      </header>
+    <section class="stage-col">
       <div class="stage-panel" id="stage-panel">
         <div class="stage-body">
-          <div class="battle-portrait" id="btl-portrait" hidden>
+          <div class="battle-portrait" id="btl-portrait">
+            <div class="loc-backdrop" id="loc-backdrop" aria-hidden="true">
+              <div class="loc-backdrop-icon" id="loc-backdrop-icon"></div>
+              <div class="loc-backdrop-grain"></div>
+              <div class="loc-backdrop-vignette"></div>
+              <p class="loc-backdrop-name" id="loc-backdrop-name"></p>
+            </div>
             <div class="btl-foes" id="btl-foes"></div>
             <div class="btl-art-wrap" id="btl-art-wrap">
+              <div class="foe-back-row" id="foe-back-row" aria-hidden="true"></div>
               <img class="btl-art" id="btl-art" alt="" draggable="false" />
               <div class="wound-layer" id="btl-wounds" aria-hidden="true"></div>
               <div class="fx-layer" id="btl-fx" aria-hidden="true"></div>
@@ -92,17 +125,115 @@
             </div>
             <p class="btl-msg" id="btl-msg"></p>
           </div>
-          <div class="journal" id="journal"></div>
         </div>
-        <div class="slash-timer" id="slash-timer" hidden aria-hidden="true">
-          <div class="slash-timer-fill" id="slash-timer-fill"></div>
+      </div>
+
+    </section>
+
+    <section class="scroll-col">
+      <header class="scene-head">
+        <div class="scene-title">
+          <p class="kicker" id="mode-label">行路</p>
+          <h2 id="loc-title"></h2>
         </div>
+        <div class="hud">
+          <div class="hud-bars">
+            <div class="vital-row">
+              <span class="vital-label">气血</span>
+              <div class="vital-bar vital-hp">
+                <div class="vital-fill" id="hp-fill"></div>
+                <span class="vital-text" id="hp-text"></span>
+              </div>
+            </div>
+            <div class="vital-row">
+              <span class="vital-label">体力</span>
+              <div class="vital-bar vital-stamina">
+                <div class="vital-fill" id="stamina-fill"></div>
+                <span class="vital-text" id="stamina-text"></span>
+              </div>
+            </div>
+            <div class="vital-row">
+              <span class="vital-label">饱腹</span>
+              <div class="vital-bar vital-satiety">
+                <div class="vital-fill" id="satiety-fill"></div>
+                <span class="vital-text" id="satiety-text"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="clock" id="clock"></p>
+        <pre class="mono" id="st-status" hidden></pre>
+      </header>
+      <div class="journal" id="journal"></div>
+      <div class="slash-timer" id="slash-timer" hidden aria-hidden="true">
+        <div class="slash-timer-fill" id="slash-timer-fill"></div>
       </div>
       <section class="cmd">
         <h3 id="cmd-title">行事</h3>
         <div id="commands"></div>
       </section>
-    </main>
+    </section>
+
+    <nav class="dock">
+      <button type="button" class="dock-btn dock-main" id="btn-bag">
+        <svg class="dock-ico" viewBox="0 0 8 8" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M2 1h4v1h1v5H1V2h1zM3 2v1h2V2z"/><path fill="#8a7340" d="M2 4h4v1H2z"/></svg>
+        <span>行囊</span><pre class="dock-count mono" id="st-inv"></pre>
+      </button>
+      <button type="button" class="dock-btn dock-main" id="btn-map">
+        <svg class="dock-ico" viewBox="0 0 8 8" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M0 1h2v1h2V1h2v1h2v6H6V7H4v1H2V7H0z"/><path fill="#9a2b1f" d="M5 3h1v2H5z"/></svg>
+        <span>赴京图</span>
+      </button>
+      <pre class="dock-gear mono" id="st-gear"></pre>
+      <span class="dock-sp"></span>
+      <div class="dock-menu-wrap">
+        <button type="button" class="dock-btn" id="btn-menu" aria-expanded="false">菜单</button>
+        <div class="dock-menu" id="dock-menu" hidden>
+          <button type="button" class="dock-btn" id="btn-save">存档</button>
+          <button type="button" class="dock-btn" id="btn-load">读档</button>
+          <button type="button" class="dock-btn" id="btn-sfx" title="开关音效">音效开</button>
+          <button type="button" class="dock-btn" id="btn-settings" title="音量设置">设置</button>
+          <button type="button" class="dock-btn" id="btn-codex">图鉴</button>
+          <button type="button" class="dock-btn" id="btn-opening">序章</button>
+          <button type="button" class="dock-btn" id="btn-restart">新游戏</button>
+          <button type="button" class="dock-btn" id="btn-lang" data-no-i18n>English</button>
+        </div>
+      </div>
+    </nav>
+
+    <div class="map-drawer" id="map-drawer" hidden>
+      <div class="map-sheet">
+        <header class="map-head">
+          <h2>赴京图</h2>
+          <span class="map-hint">朱框为所在，亮框可去</span>
+          <button type="button" class="dock-btn" id="map-close">合上</button>
+        </header>
+        <div class="minimap-wrap">
+          <div id="minimap" class="minimap" aria-label="可点击小地图"></div>
+          <p id="map-tip" class="map-tip" hidden></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="settings-modal" class="settings-modal" hidden>
+    <div class="settings-panel">
+      <header class="settings-head">
+        <h2>音量设置</h2>
+        <button type="button" class="px-btn" id="settings-close">关闭</button>
+      </header>
+      <div class="settings-body">
+        <label class="settings-row">
+          <span class="settings-label">音乐</span>
+          <input type="range" id="vol-bgm" min="0" max="100" value="45" class="settings-slider" />
+          <span class="settings-val" id="vol-bgm-val">45</span>
+        </label>
+        <label class="settings-row">
+          <span class="settings-label">音效</span>
+          <input type="range" id="vol-sfx" min="0" max="100" value="22" class="settings-slider" />
+          <span class="settings-val" id="vol-sfx-val">22</span>
+        </label>
+      </div>
+    </div>
   </div>
 
   <p class="toast" id="toast" hidden></p>
@@ -111,7 +242,7 @@
     <div class="death-veil"></div>
     <div class="death-panel">
       <p class="death-brand">长生劫 · 赴京</p>
-      <h1 class="death-title">雪盖上来</h1>
+      <h1 class="death-title" id="death-title">雪盖上来</h1>
       <p class="death-text" id="death-text"></p>
       <div class="death-actions">
         <button type="button" class="brush-btn" id="death-retry">再走一遭</button>
@@ -120,62 +251,29 @@
     </div>
   </div>
 
+  <!-- 残血：四周像素血色暗角随心跳搏动 + 顶部两侧血滴；受击闪一下（game.js syncVitalFx / screenHitFx） -->
   <div id="screen-fx" class="screen-fx" aria-hidden="true">
-    <div class="screen-fx-blur"></div>
-    <div class="screen-fx-tint"></div>
-    <div class="screen-fx-ghost"></div>
-    <svg class="screen-fx-veins" viewBox="0 0 200 120" preserveAspectRatio="none" aria-hidden="true">
-      <!-- 巩膜血丝：自四周向中心延伸分叉，中央留白 -->
-      <g fill="none" stroke-linecap="round" stroke-linejoin="round">
-        <g stroke="#7a1c1c" opacity="0.78">
-          <path d="M0 24 C18 26,28 32,36 44 C42 54,46 58,52 60" stroke-width="0.7" />
-          <path d="M36 44 C40 40,48 38,54 42" stroke-width="0.4" />
-          <path d="M0 48 C14 50,24 56,30 66 C34 74,36 78,38 82" stroke-width="0.55" />
-          <path d="M30 66 C36 64,44 66,48 72" stroke-width="0.35" />
-          <path d="M0 78 C16 76,26 70,34 62 C40 56,44 54,50 54" stroke-width="0.6" />
-          <path d="M0 96 C12 90,20 82,26 72" stroke-width="0.45" />
-          <path d="M22 0 C24 14,30 24,40 32 C48 38,52 40,56 40" stroke-width="0.65" />
-          <path d="M40 32 C44 28,52 26,58 30" stroke-width="0.35" />
-          <path d="M48 0 C50 12,58 20,68 26 C74 30,78 30,82 28" stroke-width="0.5" />
-          <path d="M78 0 C80 10,88 16,98 18" stroke-width="0.4" />
-          <path d="M200 28 C182 30,172 36,164 48 C158 58,154 62,148 64" stroke-width="0.7" />
-          <path d="M164 48 C160 44,152 42,146 46" stroke-width="0.4" />
-          <path d="M200 52 C186 54,176 60,170 70 C166 78,164 82,162 86" stroke-width="0.55" />
-          <path d="M170 70 C164 68,156 70,152 76" stroke-width="0.35" />
-          <path d="M200 82 C184 80,174 74,166 66 C160 60,156 58,150 58" stroke-width="0.6" />
-          <path d="M178 0 C176 14,170 24,160 32 C152 38,148 40,144 40" stroke-width="0.65" />
-          <path d="M160 32 C156 28,148 26,142 30" stroke-width="0.35" />
-          <path d="M152 0 C150 12,142 20,132 26 C126 30,122 30,118 28" stroke-width="0.5" />
-          <path d="M28 120 C30 106,36 96,46 88 C54 82,58 80,62 80" stroke-width="0.65" />
-          <path d="M46 88 C50 92,58 94,64 90" stroke-width="0.35" />
-          <path d="M56 120 C58 108,66 100,76 94 C82 90,86 90,90 92" stroke-width="0.5" />
-          <path d="M172 120 C170 106,164 96,154 88 C146 82,142 80,138 80" stroke-width="0.65" />
-          <path d="M154 88 C150 92,142 94,136 90" stroke-width="0.35" />
-          <path d="M144 120 C142 108,134 100,124 94 C118 90,114 90,110 92" stroke-width="0.5" />
-        </g>
-        <g stroke="#a83232" opacity="0.45">
-          <path d="M0 36 C10 38,16 44,20 52 C22 58,24 60,28 60" stroke-width="0.3" />
-          <path d="M200 40 C190 42,184 48,180 56 C178 62,176 64,172 64" stroke-width="0.3" />
-          <path d="M36 0 C38 8,44 14,52 18 C56 20,58 20,60 18" stroke-width="0.28" />
-          <path d="M164 0 C162 8,156 14,148 18 C144 20,142 20,140 18" stroke-width="0.28" />
-          <path d="M40 120 C42 112,48 106,56 102 C60 100,62 100,64 102" stroke-width="0.28" />
-          <path d="M160 120 C158 112,152 106,144 102 C140 100,138 100,136 102" stroke-width="0.28" />
-          <path d="M52 60 C56 56,62 56,66 60" stroke-width="0.22" />
-          <path d="M148 64 C144 60,138 60,134 64" stroke-width="0.22" />
-          <path d="M62 80 C66 76,72 76,76 80" stroke-width="0.22" />
-          <path d="M138 80 C134 76,128 76,124 80" stroke-width="0.22" />
-        </g>
-      </g>
-    </svg>
+    <div class="sfx-dither"></div>
+    <div class="sfx-rim"></div>
+    <div class="sfx-drips" id="sfx-drips"></div>
     <div class="screen-fx-flash"></div>
   </div>
 
-  <script src="data.js?v=fx89"></script>
-  <script src="sfx.js?v=fx89"></script>
-  <script src="combat.js?v=fx89"></script>
-  <script src="firearm.js?v=fx89"></script>
-  <script src="combat-ui.js?v=fx89"></script>
-  <script src="opening.js?v=fx89"></script>
-  <script src="game.js?v=fx89"></script>
+  <script src="i18n.js?v=i4"></script>
+  <script src="i18n-en.js?v=fm1"></script>
+  <script src="data.js?v=ic4"></script>
+  <script src="icon-bounds.js?v=ic4"></script>
+  <script src="enemy-hit-points.js?v=lc1"></script>
+  <script src="asset-loader.js?v=px1"></script>
+  <script src="sfx.js?v=fx110"></script>
+  <script src="bgm.js?v=fx105"></script>
+  <script src="score.js?v=lc1"></script>
+  <script src="combat.js?v=fm1"></script>
+  <script src="firearm.js?v=fm1"></script>
+  <script src="combat-ui.js?v=ic2"></script>
+  <script src="opening.js?v=i1"></script>
+  <script src="codex.js?v=lc1"></script>
+  <script src="game.js?v=fm1"></script>
+  <script src="ui-shell.js?v=i1"></script>
 </body>
 </html>
