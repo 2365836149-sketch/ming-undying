@@ -698,7 +698,7 @@ function gearSummary(state) {
   if (w.firearm) {
     const mode =
       w.mode === "shoot" ? "可射" : w.mode === "slash" ? "可刺" : w.mode === "smash" ? "可砸" : "空膛";
-    lines.push(`兵器  ${w.name}（${typeLabel} · 伤 ${w.dmg} · 弹 ${w.ammo|0} · ${mode}）`);
+    lines.push(`兵器  ${w.name}（${w.mode === "shoot" || w.mode === "empty" || !w.mode ? "火器" : typeLabel} · 伤 ${w.dmg} · 弹 ${w.ammo|0} · ${mode}）`);
   } else {
     lines.push(`兵器  ${w.name}（${typeLabel} · 每${typeLabel} ${slashHitDamage(state)} · ${typeLabel}影 ${w.combo + 1} · 耗体 ${w.stamina}）`);
   }
@@ -893,6 +893,23 @@ function slashHitDamage(state) {
 }
 
 
+/** 同名敌人编号：行尸1、行尸2（原名留在 baseName，图鉴、克制表都按原名查） */
+function numberFoes(list) {
+  list.forEach((e) => {
+    if (!e.baseName) e.baseName = e.name;
+    if (!e.kind && ENEMY_KIND[e.baseName]) e.kind = ENEMY_KIND[e.baseName];
+  });
+  const count = {};
+  list.forEach((e) => { count[e.baseName] = (count[e.baseName] || 0) + 1; });
+  const seen = {};
+  list.forEach((e) => {
+    if (count[e.baseName] < 2) { e.name = e.baseName; return; }
+    seen[e.baseName] = (seen[e.baseName] || 0) + 1;
+    e.name = e.baseName + seen[e.baseName];
+  });
+  return list;
+}
+
 function cloneFight(id) {
   const t = COMBAT.templates[id];
   if (!t) return null;
@@ -902,7 +919,7 @@ function cloneFight(id) {
     intro: t.intro,
     hue: t.hue || 0,
     round: 1,
-    enemies: t.enemies.map((e) => ({ ...e, maxHp: e.hp })),
+    enemies: numberFoes(t.enemies.map((e) => ({ ...e, maxHp: e.hp }))),
     fleeChance: t.fleeChance,
     onWinFlags: t.onWinFlags || [],
     boss: !!t.boss,

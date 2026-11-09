@@ -247,7 +247,7 @@ body.phase-night .loc-backdrop-name { color: var(--ink); }
 }
 .journal .ending-tag { background: var(--cinnabar); color: var(--paper); border: 0; }
 
-.slash-timer { height: 9px; margin: 0 20px 8px; background: var(--paper-deep); border: 0; }
+.slash-timer { height: 9px; width: auto; margin: 0 20px 8px; background: var(--paper-deep); border: 0; }
 .slash-timer-fill { background: var(--cinnabar); }
 
 /* —— 指令：一行放得下三个 —— */
@@ -1540,3 +1540,39 @@ body.bullet-time .blood-dot { animation-duration: 1.5s; }
 .btl-art-wrap.yanked .btl-art { animation: foe-yank .6s steps(8); }
 @keyframes foe-yank { 0% { translate: 0 0; rotate: 0deg; } 25% { translate: -38px 6px; rotate: -7deg; } 55% { translate: -22px 4px; rotate: -4deg; } 100% { translate: 0 0; rotate: 0deg; } }
 @media (prefers-reduced-motion: reduce) { .prop-glow { animation: none; } }
+
+/* 英文：物品详情的属性名长（Stamina cost），给标签列留够宽度，别折行压到描述上 */
+body.lang-en .stat-row { grid-template-columns: 6.4em 1fr 3.6em; }
+body.lang-en .bag-stats { height: auto; }
+body.lang-en .stat-label { white-space: nowrap; }
+body.lang-en .foe-kind { max-width: 15em; }
+
+/* ================= 手机横屏（矮而宽）：恢复左右两栏，全部压紧。放在文件末尾，盖过上面各个窄屏规则 ================= */
+@media (max-height: 500px) and (orientation: landscape) {
+  .game { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; gap: 6px; padding: 6px max(6px, env(safe-area-inset-right)) 6px max(6px, env(safe-area-inset-left)); }
+  .stage-col { grid-row: 1; grid-column: 1; }
+  .scroll-col { grid-row: 1; grid-column: 2; }
+  .game:has(.stage-panel.in-combat) { grid-template-rows: minmax(0, 1fr) auto; }
+  .dock { grid-row: 2; }
+  .dock .dock-btn, .dock-btn { min-height: 0; height: 34px; padding: 0 10px; }
+  .dock-main { font-size: var(--fs-s); }
+  .scene-head { padding: 6px 10px 4px 12px; row-gap: 0; }
+  .scene-head h2 { font-size: var(--fs-s); }
+  .scene-head h2, .scene-head .kicker, .scene-head .clock, .scene-head .corr-tag { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .scene-head .kicker, .scene-head .clock, .scene-head .corr-tag { font-size: 11px; margin: 0; }
+  .hud .vital-bar { width: 72px; }
+  .hud-bars { padding-right: 46px; gap: 2px; }
+  .hud .vital-text { font-size: 11px; left: calc(100% + 4px); }
+  .vital-label { font-size: 11px; }
+  .journal { padding: 6px 10px; line-height: 1.5; font-size: var(--fs-s); }
+  section.cmd { max-height: none; flex: none; overflow: visible; padding: 4px 8px 6px; }
+  section.cmd > h3, .cmd-head { display: none; }
+  .cmd-row, .cmd-row.battle-cmds { grid-template-columns: 1fr 1fr; gap: 4px; }
+  button.cmd { padding: 4px 8px 5px; min-height: 0; }
+  button.cmd .sub { display: none; }
+  .tut-tip, .battle-tip { padding: 4px 8px; font-size: 11px; margin-bottom: 4px; }
+  .btl-foes { top: 4px; width: 92%; }
+  .loc-backdrop-name { font-size: var(--fs-s); margin: 0 0 6px 6px; padding: 4px 10px 5px; }
+  .toast { bottom: 44px; }
+}
+

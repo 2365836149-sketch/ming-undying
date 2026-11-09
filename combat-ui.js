@@ -2633,7 +2633,7 @@ const CombatUI = (() => {
             : `一刀正中破绽，${enemy.name}受了${dealt}点伤。`
           : `划中${st.hits}处，还有${st.needed - st.hits}处没够着，${enemy.name}受了${dealt}点伤。`;
       setMsg(graze ? `擦身 · ${dealt}` : full ? `尽中！${dealt} 伤` : `中 ${st.hits}/${st.needed} · ${dealt} 伤`);
-      const vsNote = vs > 1.05 ? "（正克它）" : vs < 0.95 ? "（不对路）" : "";
+      const vsNote = graze ? "" : vs > 1.05 ? "（正克它）" : vs < 0.95 ? "（不对路）" : "";
       api.log((mult > 1 ? `趁势反击！${line}` : line) + vsNote);
     } else {
       setMsg(why === "time" ? "迟了，没能出刀" : "砍空了！");
@@ -3346,8 +3346,10 @@ const CombatUI = (() => {
   function summonHelp(c, caller) {
     const src = caller.summon || c.enemies.reduce((a, b) => (b.maxHp < a.maxHp ? b : a), c.enemies[0]);
     const hp = caller.summon ? src.hp : Math.max(20, Math.round(src.maxHp * 0.7));
-    c.enemies.push({ id: src.id, name: src.name, hp, maxHp: hp, atk: src.atk, charge: 0, intent: "bite" });
-    api.log(caller.callLine ? caller.callLine.replace("{0}", src.name) : `${caller.name}仰头一声长嚎，又有一具${src.name}循声扑了过来。`);
+    const base = src.baseName || src.name;
+    c.enemies.push({ id: src.id, name: base, baseName: base, kind: src.kind, hp, maxHp: hp, atk: src.atk, charge: 0, intent: "bite" });
+    if (typeof numberFoes === "function") numberFoes(c.enemies);
+    api.log(caller.callLine ? caller.callLine.replace("{0}", base) : `${caller.name}仰头一声长嚎，又有一具${base}循声扑了过来。`);
     paintFoes({ portrait: false });
     paintBackRow();
   }
@@ -3382,6 +3384,12 @@ const CombatUI = (() => {
       dmg -= blocked;
       /* 护甲、符箓按比例减；只要被扑中，至少掉一点血 */
       if (dmg > 0) dmg = Math.max(1, Math.round(dmg * damageTakenRate(s)));
+      /* 教学这一场气血不低于 40：先把伤害压住，日志里的数字才对得上 */
+      let dodged = false;
+      if (c.tutorial && dmg > 0 && s.hp - dmg < 40) {
+        dmg = Math.max(0, s.hp - 40);
+        dodged = dmg <= 0 && !parry;
+      }
       playLunge(idx);
       if (parry && typeof SFX !== "undefined") {
         if (parry === "perfect") {
@@ -3398,17 +3406,26 @@ const CombatUI = (() => {
         c.counter = true;
         c.counterUntil = performance.now() + RT().counterMs;
         e.stun = 0.8;
-        api.log(`${e.name}${it.act}，你看准时机一格，它身形一歪，正是反击的时候。`);
+        if (dmg <= 0) api.log(`${e.name}${it.act}，你看准时机一格，它身形一歪，正是反击的时候。`);
       } else if (blocked > 0) {
         api.log(`${w.name || "兵器"}挡下了 ${blocked} 点。`, "sys");
       }
-      if (dmg <= 0) {
+      if (dodged) {
+        setMsg("躲过了");
+        api.log(`${e.name}${it.act}，被你狼狈地躲了过去。`);
+      } else if (dmg <= 0) {
         setMsg(parry === "perfect" ? "完美格挡！" : "你架开了。");
         playParry(parry);
       } else {
         s.hp -= dmg;
-        setMsg(parry ? `格挡 · 气血 -${dmg}` : `${e.name}${it.act} · 气血 -${dmg}`);
-        api.log(`${e.name}${it.act}，气血 -${dmg}（剩 ${Math.max(0, s.hp)}/${WORLD.maxHp}）`, "sys");
+        if (parry === "perfect") {
+          /* 完美格挡也免不了全部伤害：说清楚是轻松架开、只擦破点皮，别读成没挡住 */
+          setMsg(`完美格挡！擦伤 -${dmg}`);
+          api.log(`${e.name}${it.act}，你轻松架开，只擦破了点皮，气血 -${dmg}（剩 ${Math.max(0, s.hp)}/${WORLD.maxHp}）。它身形一歪，正是反击的时候。`);
+        } else {
+          setMsg(parry ? `格挡 · 气血 -${dmg}` : `${e.name}${it.act} · 气血 -${dmg}`);
+          api.log(`${e.name}${it.act}，气血 -${dmg}（剩 ${Math.max(0, s.hp)}/${WORLD.maxHp}）`, "sys");
+        }
         if (parry) playParry(parry);
         playPlayerHurt(dmg, idx);
         /* 被咬中一口，那股饥渴就往里钻一分 */

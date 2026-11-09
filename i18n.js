@@ -44,7 +44,12 @@ const I18N = (() => {
     const lead = /^\s*/.exec(text)[0];
     const tail = /\s*$/.exec(text)[0];
     const core = text.slice(lead.length, text.length - tail.length);
-    return lead + trCore(core) + tail;
+    return lead + plainQuotes(trCore(core)) + tail;
+  }
+
+  /* 像素字体里弯引号是全角宽（"It’ s"），英文一律换成直引号 */
+  function plainQuotes(t) {
+    return t.replace(/[‘’]/g, "'").replace(/[“”]/g, '"');
   }
 
   function trCore(s) {
@@ -54,10 +59,10 @@ const I18N = (() => {
     for (const p of patterns) {
       const m = p.re.exec(s);
       if (!m) continue;
-      return p.en.replace(/\{(\d+)\}/g, (_, i) => {
-        const v = m[p.order.indexOf(+i) + 1];
-        return v == null ? "" : trCore(v);
-      });
+      const arg = (i) => { const v = m[p.order.indexOf(+i) + 1]; return v == null ? "" : trCore(v); };
+      /* 英文模板也可以是函数（单复数、刻→时辰说法等），参数按 {0}{1} 顺序给 */
+      if (typeof p.en === "function") return p.en(...p.order.slice().sort((a, b) => a - b).map(arg));
+      return p.en.replace(/\{(\d+)\}/g, (_, i) => arg(i));
     }
     for (const sep of [" · ", "  · ", "；", "　"]) {
       if (s.includes(sep)) {
@@ -82,7 +87,13 @@ const I18N = (() => {
     const br = /^([【「『（(])(.*)([】」』）)])([。.]?)$/.exec(s);
     if (br && CJK.test(br[2])) {
       const inner = trCore(br[2]);
-      if (inner !== br[2]) return (br[1] === "【" ? "[" : br[1] === "（" ? "(" : "“") + inner + (br[3] === "】" ? "]" : br[3] === "）" ? ")" : "”") + (br[4] ? "." : "");
+      if (inner !== br[2]) return (br[1] === "【" ? "[" : br[1] === "（" ? "(" : '"') + inner + (br[3] === "】" ? "]" : br[3] === "）" ? ")" : '"') + (br[4] ? "." : "");
+    }
+    /* 同名敌人编了号（行尸1、行尸2）：名字照翻，号码留着 */
+    const num = /^(.*[一-鿿])(\d+)$/.exec(s);
+    if (num) {
+      const base = trCore(num[1]);
+      if (!CJK.test(base)) return base + " " + num[2];
     }
     missing.add(s);
     return s;

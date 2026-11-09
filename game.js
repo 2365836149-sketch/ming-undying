@@ -177,6 +177,7 @@
     }
     try {
       restore(JSON.parse(raw));
+      journalPainted = Infinity;
       started = true;
       markSaved();
       CombatUI.close();
@@ -198,6 +199,8 @@
     const seen = S.seen;
     S = fresh();
     S.seen = seen;
+    /* 新的一条命：日志栏整个重画，别把上一条命的字留着 */
+    journalPainted = Infinity;
     hideDeathScreen().then(() => {
       revealGame({ forceFade: true });
       log("雪又下了起来，官道还是那条官道。");
@@ -981,7 +984,21 @@
       const i = box.children.length;
       const d = document.createElement("span");
       d.className = "sfx-drip";
-      const side = i % 2 === 0 ? 2 + Math.random() * 16 : 82 + Math.random() * 16;
+      /* 别挂在气血/体力那几行数字上：落在 HUD 横向范围里的就换个位置 */
+      const hud = document.querySelector(".hud");
+      const hr = hud && hud.offsetParent ? hud.getBoundingClientRect() : null;
+      const blocked = (pct) => {
+        if (!hr || hr.top > 220) return false;
+        const x = (pct / 100) * window.innerWidth;
+        return x > hr.left - 16 && x < hr.right + 16;
+      };
+      let side = 0;
+      for (let k = 0; k < 20; k++) {
+        side = (i + k) % 2 === 0 ? 2 + Math.random() * 16 : 82 + Math.random() * 16;
+        if (!blocked(side)) break;
+        side = 2 + Math.random() * 40;
+        if (!blocked(side)) break;
+      }
       d.style.left = side + "%";
       d.style.setProperty("--w", 3 * (3 + Math.floor(Math.random() * 3)) + "px");
       d.style.setProperty("--len", 40 + Math.random() * 120 + "px");
@@ -1027,6 +1044,8 @@
     applyPhase();
     Codex.seeOwned(S);
     const maxStam = maxStaminaOf(S);
+    /* 穿上重甲上限变低：现有体力跟着压下来，免得出现 99/97 */
+    if (S.stamina > maxStam) S.stamina = maxStam;
     syncVitalBar(el.hpFill, el.hpText, S.hp, WORLD.maxHp);
     syncVitalBar(el.staminaFill, el.staminaText, S.stamina, maxStam, {
       low: S.stamina <= maxStam * 0.2,
@@ -1536,7 +1555,7 @@
       if (BGM.sting) BGM.sting(result === "win" ? "victory" : "flee");
     }
     if (result === "win") {
-      c.enemies.forEach((e) => Codex.see("enemy", e.name));
+      c.enemies.forEach((e) => Codex.see("enemy", e.baseName || e.name));
       (t.onWinFlags || []).forEach((f) => S.flags.add(f));
       if (S.powers.has("soul_drain")) {
         S.hp = Math.min(WORLD.maxHp, S.hp + 17);

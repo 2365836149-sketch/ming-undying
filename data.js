@@ -15,7 +15,7 @@ const WORLD = {
   maxSatiety: 100,
   hunger: { start: 70, perMin: 1.3, search: 1, rest: 4, fight: 3, hungry: 30, starving: 10, starveHp: 4 },
   /* 负重上限；不超过六成算轻装，超过上限算沉重 */
-  carryCap: 20,
+  carryCap: 26,
   lightRatio: 0.6,
   mapView: { w: 640, h: 440 },
   /* 赴京图分区：地点按区排开，互不遮挡（坐标同 mapView） */

@@ -1,4 +1,18 @@
 /* 英文文本（由 tools/i18n 生成后手工校对）。字典键是中文原文 */
+/* 英文冠词：元音开头 an；甲胄说 a suit of；复数/不可数说 some */
+var EN_A = function (name) {
+  if (/armou?r$/i.test(name)) return "a suit of " + name;
+  if (/s$/.test(name) || /^(Dried|Salted|Rice|Millet|Tea|Wine|Powder|Shot|Wadding)\b/.test(name)) return "some " + name;
+  return (/^[AEIOU]/i.test(name) ? "an " : "a ") + name;
+};
+/* 刻 → 英文：不说分钟，用 quarter hour / hour */
+var EN_KE = function (n) {
+  n = +n;
+  var t = { 1: "a quarter of an hour", 2: "half an hour", 3: "three quarters of an hour", 4: "an hour", 5: "an hour and more", 6: "an hour and a half", 8: "two hours" }[n];
+  if (t) return t;
+  var h = Math.round(n / 2) / 2;
+  return (h === Math.floor(h) ? h : Math.floor(h) + " and a half") + " hours";
+};
 I18N.add({
  "· 正在使用": " · in use",
  "「初七日，城门闭。初九，兵变。十一，街上已无人行。闻宫中夜夜有咀嚼声。」": "“Seventh day: the gates shut. Ninth: the troops mutinied. Eleventh: not a soul on the streets. Every night, from the palace, the sound of chewing.”",
@@ -34,7 +48,7 @@ I18N.add({
  "丹陛前烛泪堆得像座小山。龙椅上坐着的，便是当今天子，胸口还在起伏，眼白却已全黑。": "Candle drippings are heaped like a small hill before the steps. The one seated on the dragon throne is the Son of Heaven himself. His chest still rises and falls, but the whites of his eyes have turned black.",
  "丹陛的石缝里嵌着碎片，你蹲下拼了拼，正是那只玉瓶。药早已渗进石缝，除了这座空城，什么也没留下。": "Shards are wedged in the cracks of the steps. You crouch and piece them together: it is the jade vial. The elixir long ago seeped into the stone. Nothing is left of it but this empty city.",
  "主动出击": "Strike First",
- "井水红中带黑，井壁上刻着四个字：药过人变。": "The well water is red shot with black. Carved into the stone are four characters: The drug passes, the man changes.",
+ "井水红中带黑，井壁上刻着四个字：药过人变。": "The well water is red shot with black. Four words are carved into the stone: DRUG IN, MAN GONE.",
  "井边倒着一条死狗，你只看了一眼，喉咙便有些发紧。": "A dead dog lies by the well. One look, and your throat tightens.",
  "交战之中，无暇落笔存档": "No time to write in your journal mid-fight",
  "京师外城的大门半开半掩。守门的兵丁盔甲还穿在身上，人却早已不成人形，被一条铁链拴在门轴上，见了活物便扑。": "The outer gate of the capital stands half open. The guard still wears his armor, but there is nothing human left in him. A chain binds him to the gate pivot, and he lunges at anything alive.",
@@ -292,7 +306,7 @@ I18N.add({
  "整片铁锻，刀枪难入，沉重异常。": "Forged from single plates of iron; blades and spears can hardly pierce it. Terribly heavy.",
  "斩": "Cut",
  "斩断门链": "Sever the Gate Chain",
- "斩杀": "Slay",
+ "斩杀": "Combat",
  "新游戏": "New Game",
  "旋转": "Rotate",
  "无": "None",
@@ -306,7 +320,7 @@ I18N.add({
  "未找到该护甲": "Armor not found",
  "本回合已换过兵器": "You have already switched weapons this round",
  "朱框为所在，亮框可去": "Red frame: you are here. Bright frame: you can go.",
- "朴刀": "Broadsword",
+ "朴刀": "Glaive",
  "村口的石敢当歪在一边，巷子里挂着几条红布，早已冻得发黑。": "The stone guardian at the village mouth leans to one side. Strips of red cloth hang in the lanes, long since frozen black.",
  "村尾的土地庙里供桌翻倒，神像被扭过去面朝着墙，墙上有人用炭写了一行字：『长生者，大灾也。』落款是一个道家的符记。": "In the earth-god shrine at the end of the village the altar is overturned and the statue twisted to face the wall. On the wall someone has written in charcoal: “Immortality is a great calamity.” It is signed with a Taoist sigil.",
  "村落": "Village",
@@ -327,7 +341,7 @@ I18N.add({
  "棉甲": "Cotton Armor",
  "棉甲残片": "Scrap of Cotton Armor",
  "正在备办行装…": "Preparing your pack…",
- "正是：一道求仙旨，换得满城尸。此去吉凶如何，且看下文分解。": "Thus it was: one edict in search of immortality, one city full of corpses. What awaits on the road ahead? Read on.",
+ "正是：一道求仙旨，换得满城尸。此去吉凶如何，且看下文分解。": "Thus it was: one edict in search of immortality, one city full of corpses. What awaits on the road ahead? Let the tale unfold.",
  "正殿神像被推倒了，供桌上留着几页写满字的纸。": "The statues in the main hall have been pushed over. A few pages covered in writing lie on the altar.",
  "此后": "Afterward",
  "此处仅放兵器": "Weapons only here",
@@ -335,7 +349,7 @@ I18N.add({
  "此处放不下": "It won’t fit here",
  "此物不可丢弃": "This cannot be discarded",
  "此管已装": "This barrel is already loaded",
- "步卒朴刀，刀身宽厚。": "A foot soldier’s broadsword with a broad, heavy blade.",
+ "步卒朴刀，刀身宽厚。": "A foot soldier’s glaive: a broad, heavy blade on a long haft.",
  "武器栏": "Weapon Rack",
  "残卫腰牌上的字和这张抄件对得上，原是同一趟差事。": "The words on the straggler’s badge match this copy: they were on the same mission.",
  "残墙后头有个影子晃了一晃，看不清是什么。": "A shadow flickers behind the broken wall. You can’t tell what it was.",
@@ -402,7 +416,7 @@ I18N.add({
  "空子铳": "Empty Chamber",
  "空膛": "Empty barrel",
  "空膛 · 请装填或换兵器": "Empty barrel · reload or switch weapons",
- "站稳脚步，气血 +17。": "You plant your feet. Vitality +17.",
+ "站稳脚步，气血 +17。": "You catch your breath. Vitality +17.",
  "符上的朱砂看着像血，你连忙别过眼去。": "The cinnabar on the talisman looks like blood. You quickly look away.",
  "等禁军听见惨叫撞进门来，殿中已是满地血污。皇帝端坐在龙椅上，嘴角挂着血，两眼漆黑，见了活人，只是笑。": "By the time the palace guards heard the screams and broke in, the hall was awash in blood. The Emperor sat upright on the dragon throne, blood at the corners of his mouth, his eyes pitch black. When he saw the living, he only smiled.",
  "简图上标着一处入宫的偏门，柜角还丢着驿卒留下的一块棉甲。": "The sketch marks a side gate into the palace. In the corner of the cabinet lies a cotton vest left by a courier.",
@@ -784,7 +798,7 @@ I18N.add({
  "夜里桥上黑魆魆的，石狮子的影子比白天大了一圈，桥那头有马蹄声来回踱着。": "At night the bridge is pitch black; the lions’ shadows are larger than by day, and hoofbeats pace back and forth at the far end.",
  "桥那头的马蹄声还在，时远时近，像是在巡桥。": "The hoofbeats at the far end are still there, near and far, as if patrolling the bridge.",
  "永定河冻得严严实实，卢沟桥横在冰上，桥栏上的石狮子顶着雪，一个个望着京城的方向。": "The Yongding River is frozen solid. Lugou Bridge spans the ice, its stone lions capped with snow, every one facing the capital.",
- "桥面上塞满了逃难的大车，箱笼包袱撒了一地，牲口早不知去向。桥心歪着一辆蒙油布的官车，车辕上还插着一面锦衣卫的小旗。": "The bridge is jammed with refugee carts, chests and bundles strewn everywhere, the animals long gone. In the middle sits an official cart under oilcloth, an Brocade Guard pennant still on its shaft.",
+ "桥面上塞满了逃难的大车，箱笼包袱撒了一地，牲口早不知去向。桥心歪着一辆蒙油布的官车，车辕上还插着一面锦衣卫的小旗。": "The bridge is jammed with refugee carts, chests and bundles strewn everywhere, the animals long gone. In the middle sits an official cart under oilcloth, a Brocade Guard pennant still on its shaft.",
  "桥头的石碑上「卢沟晓月」四个字，叫人用刀刮花了。": "On the stele at the bridgehead, the words “Dawn Moon over Lugou” have been scratched out with a blade.",
  "地窖的板子掀在一旁，那千总已经走了，雪上留着一行往西去的脚印。": "The cellar boards lie to one side. The captain is gone; a line of footprints leads west through the snow.",
  "营盘里静了下来，只有营旗的碎布条还在旗杆上啪啪作响。": "The camp is quiet now, only the shreds of the banner snapping on the pole.",
@@ -953,13 +967,13 @@ I18N.add({
  "躁": "Restless",
  "狂": "Frenzied",
  "肉身": "Flesh",
- "怕斩": "weak to slashing",
+ "怕斩": "weak: cuts",
  "披甲": "Armored",
- "怕砸、火器": "weak to blunt and firearms",
+ "怕砸、火器": "weak: blunt, guns",
  "疾行": "Swift",
- "怕刺": "weak to thrusts",
- "（正克它）": "(effective)",
- "（不对路）": "(ineffective)",
+ "怕刺": "weak: thrusts",
+ "（正克它）": "Effective!",
+ "（不对路）": "Not very effective.",
  "荒村孩童": "The Village Child",
  "地窖里的千总": "The Captain in the Cellar",
  "肉铺老汉": "The Old Butcher",
@@ -975,9 +989,9 @@ I18N.add({
  "慢了一步。它还会再扑，<b>两圈重合时</b>点它。": "A moment too late. It will lunge again — click it <b>when the two rings meet</b>.",
  "它要扑上来了，盯住它……": "It’s about to lunge. Watch it…",
  "挡住了！两圈重合时挡，还能趁机反击。<b>把它砍倒。</b>": "Parried! Parry as the rings meet and you'll get a counterattack. <b>Now cut it down.</b>",
- "伙计倒在门槛上，手边落着一口朴刀，怀里还揣着个冻硬的馒首。": "The waiter falls across the threshold. A broadsword lies by its hand, and a frozen steamed bun is tucked in its coat.",
+ "伙计倒在门槛上，手边落着一口朴刀，怀里还揣着个冻硬的馒首。": "The waiter falls across the threshold. A glaive lies by its hand, and a frozen steamed bun is tucked in its coat.",
  "鸟铳还在兵器架上，交战时点「换武」就能换上。进京的路有好几条，点下方「赴京图」择路而行。": "Your fowling gun is still on the weapon rack — click “Switch” in combat to draw it. There is more than one road to the capital; open the “Road Map” below to choose your way.",
- "把<b>朴刀</b>拖到兵器架上，<b>馒首</b>拖进行囊；嫌麻烦就点<b>「全部收入」</b>。": "Drag the <b>broadsword</b> onto the weapon rack and the <b>steamed bun</b> into your pack — or just click <b>Take All</b>.",
+ "把<b>朴刀</b>拖到兵器架上，<b>馒首</b>拖进行囊；嫌麻烦就点<b>「全部收入」</b>。": "Drag the <b>glaive</b> onto the weapon rack and the <b>steamed bun</b> into your pack — or just click <b>Take All</b>.",
  "循着哭声找去": "Follow the crying",
  "柴房那边": "From the woodshed",
  "去柴房看那孩子": "Check on the child in the woodshed",
@@ -1085,11 +1099,11 @@ I18N.addPatterns([
  ],
  [
   "{0} 刻",
-  "{0} quarter-hours"
+  function (n) { return EN_KE(n); }
  ],
  [
   "{0} 处",
-  "{0} points"
+  function (n) { return +n === 1 ? "1 hit" : n + " hits"; }
  ],
  [
   "{0} 常重",
@@ -1297,7 +1311,7 @@ I18N.addPatterns([
  ],
  [
   "你在尸身上翻出一件{0}。",
-  "You find a {0} on the corpse."
+  function (x) { return "You find " + EN_A(x) + " on the corpse."; }
  ],
  [
   "你在角落里翻出一件{0}。",
@@ -1345,7 +1359,7 @@ I18N.addPatterns([
  ],
  [
   "全部收入（{0} 件）",
-  "Take All ({0} items)"
+  function (n) { return +n === 1 ? "Stowed 1 item" : "Stowed all " + n + " items"; }
  ],
  [
   "兵器  {0}（{1} · 伤 {2} · 弹 {3} · {4}）",
@@ -1365,7 +1379,7 @@ I18N.addPatterns([
  ],
  [
   "刀锋擦身而过，{0}只受了 {1} 点皮肉伤。",
-  "The edge only grazes — {0} takes just {1} damage."
+  "The edge only grazes {0} — just {1} damage."
  ],
  [
   "切换到{0}",
@@ -1421,7 +1435,7 @@ I18N.addPatterns([
  ],
  [
   "孩子也分到一样{0}，捧着小口小口地吃。",
-  "The child gets some {0} too, and nibbles at it, holding it in both hands."
+  "The child gets a share of the {0} and nibbles it in tiny bites, holding it in both hands."
  ],
  [
   "尸身上还揣着{0}。",
@@ -1653,7 +1667,7 @@ I18N.addPatterns([
  ],
  [
   "行路 {0} 刻，抵达【{1}】",
-  "{0} quarter-hours on the road; arrived at [{1}]"
+  function (n, to) { var t = EN_KE(n); return t.charAt(0).toUpperCase() + t.slice(1) + " on the road. You arrive at [" + to + "]."; }
  ],
  [
   "装填了 {0} 管",
@@ -1681,7 +1695,7 @@ I18N.addPatterns([
  ],
  [
   "连划 {0} 处",
-  "{0}-point stroke"
+  function (n) { return +n === 1 ? "Single cut" : n + "-cut combo"; }
  ],
  [
   "迟缓 · {0}",
@@ -1719,4 +1733,16 @@ I18N.addPatterns([
   "饱腹 +{0}",
   "Satiety +{0}"
  ]
+]);
+
+/* 2026-11-09 试玩后补：完美格挡擦伤、教学战躲闪 */
+I18N.add({ "躲过了": "Dodged" });
+I18N.addPatterns([
+ ["{0}扑上来就咬，你轻松架开，只擦破了点皮，气血 -{1}（剩 {2}/{3}）。它身形一歪，正是反击的时候。", "{0} lunges in to bite, but you turn it aside with ease — just a scratch. Vitality -{1} ({2}/{3} left). It staggers, and the opening is yours."],
+ ["{0}扑上来就咬，被你狼狈地躲了过去。", "{0} lunges in to bite, and you scramble out of the way."],
+ ["{0}一爪撕来，你轻松架开，只擦破了点皮，气血 -{1}（剩 {2}/{3}）。它身形一歪，正是反击的时候。", "{0} rakes in with a claw, but you turn it aside with ease — just a scratch. Vitality -{1} ({2}/{3} left). It staggers, and the opening is yours."],
+ ["{0}一爪撕来，被你狼狈地躲了过去。", "{0} rakes in with a claw, and you scramble out of the way."],
+ ["{0}攒足了劲猛扑过来，你轻松架开，只擦破了点皮，气血 -{1}（剩 {2}/{3}）。它身形一歪，正是反击的时候。", "{0} gathers its strength and hurls itself at you, but you turn it aside with ease — just a scratch. Vitality -{1} ({2}/{3} left). It staggers, and the opening is yours."],
+ ["{0}攒足了劲猛扑过来，被你狼狈地躲了过去。", "{0} gathers its strength and hurls itself at you, and you scramble out of the way."],
+ ["完美格挡！擦伤 -{0}", "Perfect parry! Just a scratch: -{0}"]
 ]);
