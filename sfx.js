@@ -457,9 +457,14 @@ const SFX = (() => {
     step: ["snow_step.mp3"], /* 赶路踩雪（播放时随机变速） */
     growl: ["growl.mp3", "growl2.mp3"], /* 扑咬前低吼 */
     parry: ["parry.mp3", "parry2.mp3"], /* 格挡金铁声 */
+    /* 血肉：Freesound CC0，来源见 CREDITS.md */
+    gore_hit: ["gore_hit_1.mp3", "gore_hit_2.mp3", "gore_hit_3.mp3", "gore_hit_4.mp3", "gore_hit_5.mp3", "gore_hit_6.mp3"], /* 刀进肉 */
+    bone_crack: ["bone_crack_1.mp3", "bone_crack_2.mp3", "bone_crack_3.mp3", "bone_crack_4.mp3"], /* 骨裂 */
+    gore_kill: ["gore_kill_1.mp3", "gore_kill_2.mp3", "gore_kill_3.mp3", "gore_kill_4.mp3"], /* 倒下时一滩血肉 */
+    gore_stab: ["gore_stab_1.mp3", "gore_stab_2.mp3"], /* 捅进去 */
   };
   /* 各音效的默认音量（采样本身响度不一） */
-  const SAMPLE_GAIN = { ui_toggle: 0.6, ui_open: 0.6, ui_close: 0.6, ui_confirm: 0.7, ui_error: 0.6, page: 0.7, step: 0.6, rotate: 0.5, campfire: 0.6, heartbeat: 0.9, moan: 0.5, temple_bell: 0.5, ice_crack: 0.6, gong: 0.8, lunge: 0.7, growl: 0.8 };
+  const SAMPLE_GAIN = { gore_hit: 0.95, bone_crack: 0.8, gore_kill: 0.85, gore_stab: 0.9, ui_toggle: 0.6, ui_open: 0.6, ui_close: 0.6, ui_confirm: 0.7, ui_error: 0.6, page: 0.7, step: 0.6, rotate: 0.5, campfire: 0.6, heartbeat: 0.9, moan: 0.5, temple_bell: 0.5, ice_crack: 0.6, gong: 0.8, lunge: 0.7, growl: 0.8 };
   const variantCache = new Map(); /* name -> AudioBuffer[] */
   const variantLoading = new Map();
   function loadVariants(name) {
@@ -472,7 +477,7 @@ const SFX = (() => {
       const bufs = [];
       for (const f of SAMPLE_VARIANTS[name]) {
         try {
-          const r = await fetch(SAMPLE_BASE + f);
+          const r = await fetch(SAMPLE_BASE + f + "?v=g2");
           if (r.ok) bufs.push(await c.decodeAudioData(await r.arrayBuffer()));
         } catch (e) { /* 少一个变体不要紧 */ }
       }
@@ -482,13 +487,36 @@ const SFX = (() => {
     variantLoading.set(name, p);
     return p;
   }
+  /* 子弹时间：落笔后音效整体慢放（变低沉），配乐不受影响 */
+  let timeScale = 1;
+  const live = new Set();
+  function track(src, base) {
+    src._base = base;
+    src.playbackRate.value = base * timeScale;
+    live.add(src);
+    src.onended = () => live.delete(src);
+  }
+  function setTimeScale(k, rampSec = 0.12) {
+    timeScale = k;
+    const c = ctx;
+    if (!c) return;
+    const t = c.currentTime;
+    live.forEach((src) => {
+      try {
+        src.playbackRate.cancelScheduledValues(t);
+        src.playbackRate.setValueAtTime(src.playbackRate.value, t);
+        src.playbackRate.linearRampToValueAtTime(src._base * k, t + rampSec);
+      } catch (_) {}
+    });
+  }
+
   function playBuffer(buf, opts, name) {
     const c = ensure();
     if (!c || !unlocked || !buf) return false;
     const t0 = c.currentTime;
     const src = c.createBufferSource();
     src.buffer = buf;
-    src.playbackRate.value = (opts && opts.rate) || 0.94 + Math.random() * 0.12;
+    track(src, (opts && opts.rate) || 0.94 + Math.random() * 0.12);
     const g = c.createGain();
     g.gain.setValueAtTime(opts && opts.gain != null ? opts.gain : SAMPLE_GAIN[name] != null ? SAMPLE_GAIN[name] : 1, t0);
     src.connect(g);
@@ -581,7 +609,7 @@ const SFX = (() => {
     const t0 = c.currentTime;
     const src = c.createBufferSource();
     src.buffer = buf;
-    src.playbackRate.value = opts.rate || 1;
+    track(src, opts.rate || 1);
     const g = c.createGain();
     g.gain.setValueAtTime(opts.gain != null ? opts.gain : SAMPLE_GAIN[name] != null ? SAMPLE_GAIN[name] : 1, t0);
     src.connect(g);
@@ -706,5 +734,5 @@ const SFX = (() => {
 
   bindUnlock();
 
-  return { play, unlock, setMuted, setVolume, getVolume, toggleMute, isMuted: () => muted, preloadAll, loadSample, setAmbience };
+  return { play, unlock, setMuted, setVolume, getVolume, toggleMute, isMuted: () => muted, preloadAll, loadSample, setAmbience, setTimeScale };
 })();

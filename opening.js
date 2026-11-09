@@ -50,33 +50,33 @@ const OPENING_BEATS = [
 const OPENING_BEATS_EN = [
   {
     paragraphs: [
-      { html: "In the years of Hongzhi of the Great Ming, the realm had long known peace. Every twelfth month, within and without the nine gates of the capital, lanterns hung at every door and the smell of wine was everywhere." },
-      { html: `That winter the palace held a banquet seven nights running. Outside, they said His Majesty was in fine health and sharing his joy with the people. No one knew the candles in the Hall of Heavenly Purity never went out, or that the Emperor sat alone on his couch, turning over and over a single word: ${V("undying")}.` },
+      { html: "In the Hongzhi reign of the Great Ming, the realm had long known peace. Every twelfth month, inside and outside the nine gates of the capital, lanterns hung at every door and the smell of wine was everywhere." },
+      { html: `That winter the palace held a banquet seven nights running. Outside, they said His Majesty was in fine health and sharing his joy with the people. No one knew that the candles in the Hall of Heavenly Purity never went out, or that the Emperor sat alone on his couch, turning over and over a single word: ${V("immortality")}.` },
     ],
   },
   {
     paragraphs: [
-      { html: `Since the onset of winter His Majesty had suffered palpitations and shortness of breath, and prescription after prescription from the Imperial Academy of Medicine did nothing. A Taoist from a temple west of the capital came forward and said that deep in the snowy ridges of the Western Hills lay a frozen Medicine Valley, and in it an ${V("elixir of undying")} refined by a sage of a former dynasty, which, once swallowed, would restore youth and grant a life as long as Heaven's.` },
-      { html: "The Emperor was overjoyed. That very night he wrote a secret edict and gave it to Zhang, a centurion of the Jinyiwei, ordering him to take twenty men west under cover of night. None were to know of it; and if they did not bring back the elixir, they need not come back at all." },
+      { html: `Since the onset of winter His Majesty had suffered palpitations and shortness of breath, and prescription after prescription from the Imperial Academy of Medicine did nothing. A Taoist from a temple west of the capital came forward and said that deep in the snowy ridges of the Western Hills lay the Frostbound Medicine Valley, and in it an ${V("elixir of immortality")} refined by a sage of a former dynasty, which, once swallowed, would restore youth and grant a life as long as Heaven’s.` },
+      { html: "The Emperor was overjoyed. That very night he wrote a secret edict and gave it to Zhang, a centurion of the Brocade Guard, ordering him to take twenty men and ride west by night. No word of it was to get out — and if they did not bring back the elixir, they need not come back at all." },
     ],
   },
   {
     paragraphs: [
-      { html: "Centurion Zhang's party entered the Western Hills just as the snow closed the ridges. There were no birds or beasts in the valleys, the drifts came over their knees, and of the twenty, more than half froze or fell from the cliffs along the way." },
+      { html: "Centurion Zhang’s party entered the Western Hills just as the snow closed the ridges. There were no birds or beasts in the valleys, the drifts came over their knees, and of the twenty, more than half froze or fell from the cliffs along the way." },
       { html: "On the fortieth day, in a crack of an ice cliff, they finally found a white jade vial. It was cold to the touch, and when held to the ear, something inside seemed to be breathing slowly." },
       { html: "On the road back, two more of his men went mad in the night and bit their comrades. Centurion Zhang beheaded them himself and told the others the cold had addled their brains. The rest understood, and no one dared ask." },
     ],
   },
   {
     paragraphs: [
-      { html: "On the twenty-third day of the twelfth month, the jade vial entered the palace. The Emperor dismissed his attendants, keeping only two personal eunuchs. He pulled the stopper, threw back his head and drained it." },
-      { html: "At first nothing happened; the hall was so quiet you could hear the water clock. After about the time it takes an incense stick to burn, the bones on the dragon throne began to crack and pop, as if someone were taking a skeleton apart and putting it back together piece by piece. An attendant stepped forward to steady him, and his wrist was seized — by a hand cold as ice, and impossibly strong." },
-      { html: "By the time the guards heard the screams and broke in, the hall was awash in blood. The Emperor sat upright on the dragon throne, blood at the corners of his mouth, his eyes pitch black. When he saw the living, he only smiled." },
+      { html: "On the twenty-third day of the twelfth month, the jade vial was delivered to the palace. The Emperor dismissed his attendants, keeping only two personal eunuchs. He pulled the stopper, threw back his head and drained it." },
+      { html: "At first nothing happened; the hall was so quiet you could hear the water clock drip. After about as long as it takes a stick of incense to burn, the bones on the dragon throne began to crack and pop, as if someone were taking a skeleton apart and putting it back together piece by piece. An attendant stepped forward to steady him, and his wrist was seized — by a hand cold as ice, and impossibly strong." },
+      { html: "By the time the palace guards heard the screams and broke in, the hall was awash in blood. The Emperor sat upright on the dragon throne, blood at the corners of his mouth, his eyes pitch black. When he saw the living, he only smiled." },
     ],
   },
   {
     paragraphs: [
-      { html: "The palace gates were sealed that very night, but they could not seal in the news, nor those who had been bitten and escaped. Within half a month, people in the inner city were going mad by day and eating men by night. The authorities posted notices saying only that a plague had struck the capital and the people should stay behind closed doors." },
+      { html: "The palace gates were sealed that very night, but they could not seal in the news, nor those who had been bitten and escaped. Within half a month, people in the inner city were going mad by day and eating people by night. The authorities posted notices saying only that a plague had struck the capital, and told everyone to stay behind closed doors." },
       { html: "Two more months passed. All nine gates were sealed, and one by one the towns outside fell empty. Merchants on the road said the capital was a dead city now, and the soldiers on its walls were no longer living men." },
     ],
   },

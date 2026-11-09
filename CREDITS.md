@@ -47,8 +47,30 @@
   - `ice_crack` — 作者 j_p_higgins，https://freesound.org/s/262635/
 - 其余音效（gunshot、slash_*、wound、kill、roar 等）由作者用 ElevenLabs 生成。
 
+  - 血肉（2026-11-08 加）：
+    - `gore_hit_1` ← "Gore Impact - LOT OF HEART"，magnuswaker，https://freesound.org/s/641046/
+    - `gore_hit_2` ← "Wet Splat 1"，nebulasnails，https://freesound.org/s/495118/
+    - `gore_hit_3` ← "rip_tear FLESH!"，aust_paul，https://freesound.org/s/30931/
+    - `gore_hit_4` ← "slashkut"，Abyssmal，https://freesound.org/s/35213/
+    - `gore_hit_5` ← "Splattt"，SlykMrByches，https://freesound.org/s/55234/
+    - `gore_hit_6` ← "swing_blood_splatter"，minian89，https://freesound.org/s/195952/
+    - `bone_crack_1` ← "Bone Crack!"，Robo9418，https://freesound.org/s/869107/
+    - `bone_crack_2` ← "Bone Crack"，cb9382，https://freesound.org/s/872378/
+    - `bone_crack_3` ← "KleAudio_CrackingBone2"，kleanthism，https://freesound.org/s/145363/
+    - `bone_crack_4` ← "Bone Cracking"，bewareofkites20，https://freesound.org/s/147993/
+    - `gore_kill_1` ← "death_blood_splatter"，minian89，https://freesound.org/s/195954/
+    - `gore_kill_2` ← "Splatter - body falling apart"，Aegersum，https://freesound.org/s/344904/
+    - `gore_kill_3` ← "goreSplat"，ThefitzyG，https://freesound.org/s/414296/
+    - `gore_kill_4` ← "Bone Breaker 1"，magnuswaker，https://freesound.org/s/522171/
+    - `gore_stab_1` ← "Sword stab 1"，ihitokage，https://freesound.org/s/395370/
+    - `gore_stab_2` ← "Gore_Physical tear"，gowoto，https://freesound.org/s/762900/
+
 ## 音乐
-- 游戏内配乐由 `score.js` 用 WebAudio 实时合成，无外部素材。
+- 游戏内配乐由作者自己的 SFX Brew 配乐引擎（https://sfxbrew.com ，`vendor/sfxbrew-*.js`）实时作曲合成：古琴、琵琶、竹笛、木鱼、钟为合成音色；大鼓、锣、二胡用了以下 CC0 录音（`assets/sfxbrew/`，经裁剪、统一响度）：
+  - `drum-center-loud` / `drum-center-soft` / `drum-edge-loud` / `drum-rim` ← "Chinese Bass Drum Dagu" 系列，sazanami12，https://freesound.org/s/856549/ 、/856550/ 、/856551/ 、/856559/
+  - `gong-1` ← "gong hit loud close.wav"，thma，https://freesound.org/s/245878/
+  - `erhu-d3` ← "#1 Erhu D3.wav"，tarane468，https://freesound.org/s/569841/
+  - `erhu-f5` ← "006-Erhu-F5.wav"，tarane468，https://freesound.org/s/467482/
 
 ## 美术
 - 地点图、立绘、物品图标由作者用豆包 Seedream 生成后像素化处理。

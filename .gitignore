@@ -35,5 +35,12 @@
 !/assets/music/
 /assets/music/*
 !/assets/music/*.m4a
+!/assets/sfxbrew/
+/assets/sfxbrew/*
+!/assets/sfxbrew/*.mp3
+
+!/vendor/
+/vendor/*
+!/vendor/*.js
 
 .DS_Store

@@ -972,6 +972,18 @@ const CombatUI = (() => {
   }
 
   /** 打中敌人的声音：刀砍肉、鞭棍砸、枪钯刺；刀砍在甲上是「当」的一声 */
+  /** 砍中的声音分层：兵器声 + 血肉声（披甲的少一点肉声），重击再加一声骨裂 */
+  /** 一刀进肉：血肉声打头、最响；铁器声退到后面垫一层；底下一记低沉的闷响给分量；再跟一声骨裂 */
+  function goreHit(dmgType, e, heavy) {
+    if (typeof SFX === "undefined") return;
+    const armored = enemyKind(e) === "armor";
+    if (dmgType === "pierce") SFX.play("gore_stab", { gain: armored ? 0.75 : 1.2 });
+    else SFX.play("gore_hit", { gain: armored ? 0.75 : 1.25 });
+    SFX.play(hitSoundFor(dmgType, e), { gain: armored ? 0.85 : 0.4 });
+    SFX.play("blunt_hit", { gain: 0.4, rate: 0.6 });
+    setTimeout(() => SFX.play("bone_crack", { gain: heavy || dmgType === "blunt" ? 1 : 0.5 }), 35);
+  }
+
   function hitSoundFor(dmgType, e) {
     if (dmgType === "blunt") return "blunt_hit";
     if (dmgType === "pierce") return "stab";
@@ -1047,7 +1059,7 @@ const CombatUI = (() => {
         `<span class="foe-num">${Math.max(0, e.hp)}/${e.maxHp}</span>` +
         `<span class="foe-intent"></span>` +
         `<span class="foe-charge"><i></i></span>` +
-        `<span class="foe-kind" title="${kind.name} · ${kind.weak}">${kind.name}·${kind.weak}</span>`;
+        `<span class="foe-kind" title="${kind.name} · ${kind.weak}">${kind.name} · ${kind.weak}</span>`;
       if (e.hp > 0) {
         d.onclick = () => {
           if (i === targetIdx || locked()) return;
@@ -1343,7 +1355,10 @@ const CombatUI = (() => {
     const from = backRect(newIdx);
     hideBack(newIdx);
     targetIdx = newIdx;
+    /* 原来的前排是飞替身退到后排的，不要再从画面外走进来 */
+    noWalkIn = true;
     paintFoes();
+    noWalkIn = false;
     whenPortraitReady().then(() => {
       const moves = [from ? flyToFront(from) : playEnterAnim()];
       /* 原来的前排退到后排它的新位置 */
@@ -1390,10 +1405,18 @@ const CombatUI = (() => {
     });
   }
 
-  function playDeathAnim() {
+  function playDeathAnim(kill) {
     const wrap = $("btl-art-wrap");
     const img = $("btl-art");
     if (!wrap || !img || img.hidden) return Promise.resolve();
+    if (kill && kill.melee) {
+      const split = killSplit(kill.dir);
+      if (split) {
+        const token = ++artAnimToken;
+        if (typeof SFX !== "undefined") setTimeout(() => SFX.play("bodyfall"), 620);
+        return split.then(() => { if (token === artAnimToken) wrap.classList.add("foe-dead"); });
+      }
+    }
     const reduce =
       typeof matchMedia === "function" &&
       matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -1429,6 +1452,25 @@ const CombatUI = (() => {
     if (fx) fx.innerHTML = "";
   }
 
+  /** 后排踱步：from 为空就是从画面外（离得近的那一侧）走进来，渐显；否则从旧位置走到新位置。一步一颠 */
+  let noWalkIn = false;
+  function walkBack(el, from, to, k) {
+    if (!motionOk()) return;
+    const b = parseFloat(to);
+    const a = from == null ? (b < 50 ? -22 : 122) : parseFloat(from);
+    const enter = from == null;
+    const N = enter ? 8 : 4, dir = b > a ? 1 : -1, frames = [];
+    for (let s = 0; s <= N; s++) {
+      const t = s / N, up = s % 2 === 1;
+      const f = { offset: t, left: a + (b - a) * t + "%", transform: `translateY(${up ? -5 : 0}px) rotate(${up ? dir * 1.6 : 0}deg)` };
+      if (enter) { f.opacity = Math.min(0.9, t * 1.6); f.filter = `brightness(${(0.25 + 0.47 * Math.min(1, t * 1.4)).toFixed(2)}) blur(0.3px)`; }
+      frames.push(f);
+    }
+    const delay = enter ? 250 + k * 260 : 0, dur = enter ? 1350 : 780;
+    el.animate(frames, { duration: dur, delay, easing: "cubic-bezier(.35,.1,.45,1)", fill: "backwards" });
+    if (typeof SFX !== "undefined") for (let s = 1; s <= (enter ? 4 : 2); s++) setTimeout(() => SFX.play("footstep", { gain: 0.25 }), delay + (s * dur) / (enter ? 4.5 : 2.5));
+  }
+
   /** 渲染后排（非选中）敌人缩小立绘，2人右后固定，3人+按 index 分左右 */
   function paintBackRow() {
     const box = $("foe-back-row");
@@ -1462,6 +1504,7 @@ const CombatUI = (() => {
       const src = (COMBAT.portraits && COMBAT.portraits[e.id]) || "";
       if (!src) return;
       let el = existing.get(e.id);
+      const fresh = !el;
       if (!el) {
         el = document.createElement("img");
         el.className = "foe-back";
@@ -1484,31 +1527,15 @@ const CombatUI = (() => {
       el.style.right = "";
       /* 2人：非选中在右后；3人+：idx<target 左(35%)，idx>target 右(65%)
          不退到容器边缘，推到前面敌人身体后方附近 */
-      let newLeft;
-      if (aliveCount <= 2) {
-        newLeft = "65%";
-      } else if (i < targetIdx) {
-        newLeft = "35%";
-      } else {
-        newLeft = "65%";
-      }
+      /* 后排按编号从左到右排开：1 个站右后，2 个左右各一，3 个左中右 */
+      const others = alive.filter((x) => x.i !== targetIdx).map((x) => x.i);
+      const SLOTS = { 1: [65], 2: [30, 70], 3: [18, 50, 82] };
+      const slots = SLOTS[others.length] || others.map((_, k) => 12 + (76 * k) / Math.max(1, others.length - 1));
+      const newLeft = slots[others.indexOf(i)] + "%";
       const oldLeft = el.style.left;
-      if (oldLeft && oldLeft !== newLeft) {
-        /* 后排位置切换：触发侧移踱步动画，途中上下起伏 */
-        const dir = parseFloat(newLeft) > parseFloat(oldLeft) ? "side-walking-right" : "side-walking-left";
-        el.classList.add(dir);
-        el.addEventListener(
-          "animationend",
-          () => {
-            el.classList.remove("side-walking-left", "side-walking-right");
-            el.style.left = newLeft;
-            el.style.transform = "";
-          },
-          { once: true },
-        );
-      } else {
-        el.style.left = newLeft;
-      }
+      el.style.left = newLeft;
+      if (fresh && !noWalkIn) walkBack(el, null, newLeft, others.indexOf(i));
+      else if (oldLeft && oldLeft !== newLeft) walkBack(el, oldLeft, newLeft, 0);
     });
     existing.forEach((el, id) => {
       if (!seen.has(id)) {
@@ -1549,25 +1576,29 @@ const CombatUI = (() => {
   }
 
 
-  function spawnBlood(xPct, yPct) {
+  /** 溅血：opts.dir 给了就顺着刀势往前甩，opts.n / opts.dist / opts.size 调量 */
+  function spawnBlood(xPct, yPct, opts = {}) {
     const fx = $("btl-fx");
     if (!fx) return;
-    const n = 12 + Math.floor(Math.random() * 6);
+    const n = opts.n || 12 + Math.floor(Math.random() * 6);
+    const far = opts.dist || 48;
     for (let i = 0; i < n; i++) {
       const d = document.createElement("span");
-      d.className = "blood-dot";
-      const ang = -Math.PI * 0.15 + Math.random() * (Math.PI * 1.3);
-      const dist = 16 + Math.random() * 48;
+      d.className = "blood-dot" + (opts.big ? " big" : "");
+      const ang = opts.dir != null
+        ? opts.dir + (Math.random() - 0.5) * (Math.random() < 0.7 ? 0.9 : 2.6)
+        : -Math.PI * 0.15 + Math.random() * (Math.PI * 1.3);
+      const dist = 16 + Math.random() * far;
       d.style.left = xPct + "%";
       d.style.top = yPct + "%";
       d.style.setProperty("--bx", Math.cos(ang) * dist + "px");
       d.style.setProperty("--by", Math.sin(ang) * dist - 8 + "px");
-      d.style.setProperty("--bs", String(0.45 + Math.random() * 1.35));
+      d.style.setProperty("--bs", String((0.45 + Math.random() * 1.35) * (opts.size || 1)));
       d.style.setProperty("--br", String(-40 + Math.random() * 80) + "deg");
       fx.appendChild(d);
       setTimeout(() => {
         if (d.parentNode) d.parentNode.removeChild(d);
-      }, 580);
+      }, 1700);
     }
   }
 
@@ -1611,7 +1642,24 @@ const CombatUI = (() => {
     }
   }
 
+  /* ========== 子弹时间：落笔即放慢，收笔恢复 ========== */
+  const BULLET = { world: 0.25, timer: 0.35, sfx: 0.55 };
+  let bulletOn = false;
+  function enterBulletTime() {
+    if (bulletOn) return;
+    bulletOn = true;
+    document.body.classList.add("bullet-time");
+    if (typeof SFX !== "undefined" && SFX.setTimeScale) SFX.setTimeScale(BULLET.sfx, 0.08);
+  }
+  function exitBulletTime() {
+    if (!bulletOn) return;
+    bulletOn = false;
+    document.body.classList.remove("bullet-time");
+    if (typeof SFX !== "undefined" && SFX.setTimeScale) SFX.setTimeScale(1, 0.25);
+  }
+
   function unbindSlashInput() {
+    exitBulletTime();
     const wrap = $("btl-art-wrap");
     if (!wrap) return;
     wrap.onpointerdown = wrap.onpointermove = wrap.onpointerup = wrap.onpointercancel = null;
@@ -1684,6 +1732,12 @@ const CombatUI = (() => {
     (c.props || []).forEach((p) => {
       if (!c.propsUsed.includes(p.id)) pairs.push([p.name, () => useProp(p), propHint(p)]);
     });
+    if (c.tutorial) {
+      menuButtons(pairs);
+      $("commands").querySelectorAll("button").forEach((b) => { b.disabled = locked(); });
+      tutCoach();
+      return;
+    }
     pairs.push(
       ["物品", () => openBagSession({ fromBattle: true, reason: "manage" }), "翻找时光阴减半"],
       ["逃离", () => tryFlee(), performance.now() < (c.fleeReadyAt || 0)
@@ -1776,11 +1830,248 @@ const CombatUI = (() => {
     badge: ["keys"], chain: ["chain"], bell: ["hand_bell"], ash: ["puff"], lime: ["puff"], shout: ["shout"],
     cart: ["cart_crash"], rack: ["weapon_clatter"], fire: ["puff"], brew: ["splash", "sizzle"], drum: ["big_drum"], lamp: ["glass_break", "fire_burst"],
   };
+  /* ---------- 场景道具的演出：道具图（豆包出图、像素化）扔过去、砸下去、摇起来 ---------- */
+  const PROP_ART = { badge: "prop_badge", chain: "prop_chain", bell: "prop_bell", ash: "prop_ash", fire: "prop_ash", lime: "prop_lime",
+    shout: "prop_flag", cart: "prop_cart", rack: "prop_rack", brew: "prop_brew", drum: "prop_drum", lamp: "prop_lamp" };
+  /* 怎么演：throw 抛过去砸中，再按 hit 出效果；其余各演各的 */
+  const PROP_PLAY = {
+    badge: { kind: "throw", hit: "clink" }, ash: { kind: "throw", hit: "dust" }, fire: { kind: "throw", hit: "dust" },
+    lime: { kind: "throw", hit: "dust", white: true }, lamp: { kind: "throw", hit: "fire" }, brew: { kind: "throw", hit: "splash" },
+    chain: { kind: "chain" }, bell: { kind: "bell" }, drum: { kind: "drum" }, shout: { kind: "flag" }, cart: { kind: "cart" }, rack: { kind: "rack" },
+  };
+  function propLayer() {
+    const st = document.querySelector(".stage-col");
+    if (!st) return null;
+    let l = st.querySelector(".prop-fx");
+    if (!l) { l = document.createElement("div"); l.className = "prop-fx"; st.appendChild(l); }
+    return { st, l, sr: st.getBoundingClientRect() };
+  }
+  function propSprite(L, id, size, x, y) {
+    const im = document.createElement("img");
+    im.className = "prop-sprite";
+    im.src = `assets/items/${PROP_ART[id] || "prop_badge"}.png?v=p1`;
+    im.style.width = im.style.height = size + "px";
+    im.style.left = x - size / 2 + "px";
+    im.style.top = y - size / 2 + "px";
+    L.l.appendChild(im);
+    return im;
+  }
+  /** 一把像素颗粒：从 (x,y) 往外喷，tone 是颜色表，up 往上飘（烟、火星），fall 往下落（水滴） */
+  function propBurst(L, x, y, o) {
+    const n = o.n || 30;
+    for (let i = 0; i < n; i++) {
+      const d = document.createElement("span");
+      d.className = "prop-dot";
+      const sz = (o.size || 4) * (0.6 + Math.random() * 1.1);
+      d.style.width = d.style.height = Math.round(sz) + "px";
+      d.style.left = x + "px"; d.style.top = y + "px";
+      d.style.background = o.tone[Math.floor(Math.random() * o.tone.length)];
+      L.l.appendChild(d);
+      const a = (o.dir != null ? o.dir : 0) + (Math.random() - 0.5) * (o.spread != null ? o.spread : Math.PI * 2);
+      const r = (o.dist || 60) * (0.3 + Math.random() * 0.9);
+      const dx = Math.cos(a) * r, dy = Math.sin(a) * r * (o.flat || 1);
+      const lift = o.up ? -(30 + Math.random() * 60) : o.fall ? 40 + Math.random() * 50 : 0;
+      const dur = (o.ms || 900) * (0.7 + Math.random() * 0.6);
+      d.animate([
+        { transform: "translate(-50%,-50%) scale(1)", opacity: 1 },
+        { offset: 0.35, transform: `translate(calc(-50% + ${dx * 0.8}px), calc(-50% + ${dy * 0.8}px)) scale(${o.grow || 1.4})`, opacity: o.fade === false ? 1 : 0.9 },
+        { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy + lift}px)) scale(${o.grow ? o.grow * 1.6 : 0.6})`, opacity: 0 },
+      ], { duration: dur, easing: "cubic-bezier(.2,.7,.3,1)", fill: "forwards", delay: Math.random() * (o.stagger || 80) });
+      setTimeout(() => d.remove(), dur + 200);
+    }
+  }
+  /** 一圈一圈往外扩的声浪 */
+  function propRing(L, x, y, o = {}) {
+    const ring = document.createElement("span");
+    ring.className = "prop-ring" + (o.thick ? " thick" : "");
+    ring.style.left = x + "px"; ring.style.top = y + "px";
+    L.l.appendChild(ring);
+    const R = o.r || 320;
+    ring.animate([
+      { width: "10px", height: "10px", opacity: 0.9 },
+      { width: R + "px", height: R * (o.flat || 0.55) + "px", opacity: 0 },
+    ], { duration: o.ms || 700, easing: "cubic-bezier(.1,.6,.3,1)", fill: "forwards", delay: o.delay || 0 });
+    setTimeout(() => ring.remove(), (o.ms || 700) + (o.delay || 0) + 100);
+  }
+  /** 播一段动画；接下来的事按时长用计时器接，不等动画回调（后台标签页里动画时钟会停） */
+  function anim(el, kf, opt) {
+    el.animate(kf, opt);
+    const ms = (opt.duration || 0) + (opt.delay || 0);
+    return { finished: new Promise((r) => setTimeout(r, ms)) };
+  }
+  function propFx(p) {
+    const sfx = (k) => { if (typeof SFX !== "undefined" && PROP_SFX[p.id] && PROP_SFX[p.id][k]) SFX.play(PROP_SFX[p.id][k]); };
+    const play = PROP_PLAY[p.id];
+    const L = propLayer();
+    if (!play || !L || !motionOk()) { sfx(0); setTimeout(() => sfx(1), 220); return; }
+    const wrap = $("btl-art-wrap");
+    const wr = wrap ? wrap.getBoundingClientRect() : L.sr;
+    /* 目标：前排立绘偏上（脸）；全场类的取画面中央 */
+    const tx = wr.left - L.sr.left + wr.width / 2, ty = wr.top - L.sr.top + wr.height * 0.36;
+    const W = L.sr.width, H = L.sr.height;
+    const GRAY = ["#d6cfbf", "#a39d90", "#6f6a60", "#4a4640"], DARK = ["#3a0c0a", "#5a1410", "#2a2622"];
+    const hitFoe = (k) => { flinch(-Math.PI / 2 + (Math.random() - 0.5), k || 1); hitStop(90); };
+    if (play.kind === "throw") {
+      const size = Math.min(130, W * 0.2);
+      const sx = W * 0.5, sy = H + size * 0.2;
+      const im = propSprite(L, p.id, size, sx, sy);
+      const peak = Math.min(sy, ty) - H * 0.18;
+      const spin = (Math.random() < 0.5 ? -1 : 1) * (p.id === "brew" || p.id === "lamp" ? 200 : 540);
+      if (typeof SFX !== "undefined") SFX.play("slash_whiff", { gain: 0.5, rate: 0.8 });
+      anim(im, [
+        { transform: "translate(0,0) rotate(0deg) scale(1)" },
+        { offset: 0.5, transform: `translate(${(tx - sx) * 0.5}px, ${peak - sy}px) rotate(${spin / 2}deg) scale(.85)` },
+        { transform: `translate(${tx - sx}px, ${ty - sy}px) rotate(${spin}deg) scale(.7)` },
+      ], { duration: 420, easing: "cubic-bezier(.3,.1,.6,1)", fill: "forwards" }).finished.then(() => {
+        if (play.hit === "clink") {
+          /* 腰牌砸在脸上弹开，叮当落地 */
+          anim(im, [
+            { transform: `translate(${tx - sx}px, ${ty - sy}px) rotate(${spin}deg) scale(.7)`, opacity: 1 },
+            { transform: `translate(${tx - sx + 70}px, ${ty - sy + H * 0.45}px) rotate(${spin + 300}deg) scale(.6)`, opacity: 0 },
+          ], { duration: 650, easing: "cubic-bezier(.4,0,1,1)", fill: "forwards" }).finished.then(() => im.remove());
+          propBurst(L, tx, ty, { n: 10, tone: ["#d6cfbf", "#ffffff"], dist: 40, size: 3, ms: 350 });
+          hitFoe(1);
+        } else {
+          im.remove();
+          if (play.hit === "dust") {
+            /* 一蓬灰（石灰是白的），在脸前炸开、慢慢散 */
+            const tone = play.white ? ["#e8e4dc", "#d6cfbf", "#bdb7aa"] : GRAY;
+            propBurst(L, tx, ty, { n: 60, tone, dist: 120, size: 7, grow: 2.4, ms: 1500, flat: 0.7, stagger: 160 });
+            propBurst(L, tx, ty, { n: 25, tone, dist: 60, size: 10, grow: 3, ms: 2000, up: true, stagger: 300 });
+            if (wrap) { wrap.classList.remove("blinded"); void wrap.offsetWidth; wrap.classList.add("blinded"); setTimeout(() => wrap.classList.remove("blinded"), 1800); }
+          } else if (play.hit === "fire") {
+            /* 灯盏碎开：几片碎陶，一团白芯暗红边的火，火星往上飘 */
+            propBurst(L, tx, ty, { n: 8, tone: ["#a39d90", "#6f6a60"], dist: 70, size: 5, ms: 600, fall: true });
+            const flash = document.createElement("span");
+            flash.className = "prop-flash fire";
+            flash.style.left = tx + "px"; flash.style.top = ty + "px";
+            L.l.appendChild(flash);
+            anim(flash, [{ opacity: 0.95, transform: "translate(-50%,-50%) scale(.3)" }, { opacity: 0, transform: "translate(-50%,-50%) scale(2.2)" }], { duration: 700, fill: "forwards" }).finished.then(() => flash.remove());
+            propBurst(L, tx, ty, { n: 40, tone: ["#ffffff", "#d6cfbf", "#9a2b1f", "#5a1410"], dist: 90, size: 4, ms: 1600, up: true, stagger: 400 });
+            /* 火光贴着地烧一阵，跟迟缓时长一样久 */
+            const glow = document.createElement("span");
+            glow.className = "prop-glow";
+            L.l.appendChild(glow);
+            setTimeout(() => { glow.classList.add("out"); setTimeout(() => glow.remove(), 900); }, (p.sec || 6) * 1000);
+          } else if (play.hit === "splash") {
+            /* 一罐滚汤泼开：水点往下落，白汽往上冒 */
+            propBurst(L, tx, ty, { n: 8, tone: ["#6f6a60", "#4a4640"], dist: 60, size: 5, ms: 600, fall: true });
+            propBurst(L, tx, ty + 20, { n: 45, tone: ["#d6cfbf", "#a39d90", "#e8e4dc"], dist: 140, size: 4, ms: 900, fall: true, flat: 0.5 });
+            propBurst(L, tx, ty, { n: 22, tone: ["#e8e4dc", "#d6cfbf"], dist: 70, size: 12, grow: 2.6, ms: 2200, up: true, stagger: 600 });
+          }
+          hitFoe(1.2);
+        }
+        shakeStage(8);
+        sfx(0);
+        setTimeout(() => sfx(1), 140);
+      });
+      return;
+    }
+    if (play.kind === "chain") {
+      /* 铁链甩过去缠住，往旁边猛地一拽 */
+      const size = Math.min(150, W * 0.24);
+      const im = propSprite(L, p.id, size, -size, ty);
+      sfx(0);
+      anim(im, [
+        { transform: "translate(0,0) rotate(-40deg)" },
+        { transform: `translate(${tx + size * 0.4}px, 0) rotate(20deg)` },
+      ], { duration: 300, easing: "cubic-bezier(.2,.8,.4,1)", fill: "forwards" }).finished.then(() => {
+        shakeStage(10);
+        if (wrap) { wrap.classList.remove("yanked"); void wrap.offsetWidth; wrap.classList.add("yanked"); setTimeout(() => wrap.classList.remove("yanked"), 600); }
+        propBurst(L, tx, ty + 30, { n: 14, tone: ["#d6cfbf", "#ffffff"], dist: 50, size: 3, ms: 400 });
+        anim(im, [
+          { transform: `translate(${tx + size * 0.4}px, 0) rotate(20deg)`, opacity: 1 },
+          { transform: `translate(${tx * 0.3}px, 10px) rotate(-30deg)`, opacity: 0 },
+        ], { duration: 500, easing: "cubic-bezier(.5,0,.8,.4)", fill: "forwards" }).finished.then(() => im.remove());
+      });
+      return;
+    }
+    if (play.kind === "bell") {
+      /* 铜铃在画面上方摇，一圈圈声浪荡过满街 */
+      const size = Math.min(120, W * 0.2);
+      const im = propSprite(L, p.id, size, W / 2, H * 0.2);
+      im.style.transformOrigin = "50% 10%";
+      sfx(0);
+      anim(im, [
+        { transform: "rotate(0deg)", opacity: 0 }, { offset: 0.08, transform: "rotate(-28deg)", opacity: 1 },
+        { offset: 0.2, transform: "rotate(26deg)" }, { offset: 0.32, transform: "rotate(-24deg)" }, { offset: 0.44, transform: "rotate(22deg)" },
+        { offset: 0.56, transform: "rotate(-16deg)" }, { offset: 0.7, transform: "rotate(10deg)" }, { offset: 0.85, transform: "rotate(-4deg)", opacity: 1 },
+        { transform: "rotate(0deg)", opacity: 0 },
+      ], { duration: 1800, easing: "linear", fill: "forwards" }).finished.then(() => im.remove());
+      for (let k = 0; k < 4; k++) propRing(L, W / 2, H * 0.22, { r: W * 1.1, ms: 1100, delay: k * 300, flat: 0.6 });
+      return;
+    }
+    if (play.kind === "drum") {
+      /* 大鼓在左下，咚、咚、咚三下，每下一道冲击波、震一下屏 */
+      const size = Math.min(200, W * 0.32);
+      const im = propSprite(L, p.id, size, size * 0.55, H - size * 0.45);
+      anim(im, [{ opacity: 0, transform: "translateY(30px)" }, { opacity: 1, transform: "none" }], { duration: 200, fill: "forwards" });
+      [0, 1, 2].forEach((k) => setTimeout(() => {
+        sfx(0);
+        anim(im, [{ transform: "scale(1)" }, { transform: "scale(1.12, .92)" }, { transform: "scale(1)" }], { duration: 180 });
+        propRing(L, size * 0.55, H - size * 0.45, { r: W * 1.6, ms: 800, thick: true });
+        shakeStage(9 + k * 3);
+        if (k === 2) { hitFoe(1.3); setTimeout(() => anim(im, [{ opacity: 1 }, { opacity: 0 }], { duration: 500, fill: "forwards" }).finished.then(() => im.remove()), 500); }
+      }, 220 + k * 380));
+      return;
+    }
+    if (play.kind === "flag") {
+      /* 令旗从下面举起来一抖，一声军令震开 */
+      const size = Math.min(150, W * 0.24);
+      const im = propSprite(L, p.id, size, W / 2, H - size * 0.3);
+      sfx(0);
+      anim(im, [
+        { transform: "translateY(60%) rotate(0deg)", opacity: 0 },
+        { offset: 0.25, transform: "translateY(-15%) rotate(-6deg)", opacity: 1 },
+        { offset: 0.45, transform: "translateY(-15%) rotate(8deg)" },
+        { offset: 0.65, transform: "translateY(-15%) rotate(-4deg)", opacity: 1 },
+        { transform: "translateY(60%) rotate(0deg)", opacity: 0 },
+      ], { duration: 1500, fill: "forwards" }).finished.then(() => im.remove());
+      setTimeout(() => { propRing(L, W / 2, H * 0.62, { r: W * 1.4, ms: 900, thick: true }); propRing(L, W / 2, H * 0.62, { r: W, ms: 900, delay: 180 }); shakeStage(10); }, 380);
+      return;
+    }
+    if (play.kind === "cart") {
+      /* 大车从左边冲进来，在敌人跟前翻倒，横在那儿当挡板，迟缓结束才撤 */
+      const size = Math.min(260, W * 0.42);
+      const im = propSprite(L, p.id, size, -size / 2, H - size * 0.35);
+      im.style.transformOrigin = "80% 90%";
+      sfx(0);
+      anim(im, [
+        { transform: "translateX(0) rotate(0deg)" },
+        { offset: 0.6, transform: `translateX(${W * 0.5 + size * 0.1}px) rotate(4deg)` },
+        { transform: `translateX(${W * 0.5}px) rotate(-18deg)` },
+      ], { duration: 650, easing: "cubic-bezier(.3,.6,.4,1)", fill: "forwards" }).finished.then(() => {
+        sfx(1); shakeStage(14); hitFoe(0.8);
+        propBurst(L, W * 0.5, H - 10, { n: 40, tone: GRAY, dist: 160, size: 6, grow: 2, ms: 1300, up: true, flat: 0.4 });
+        propBurst(L, W * 0.5, H - size * 0.4, { n: 12, tone: ["#6f6a60", "#4a4640"], dist: 120, size: 6, ms: 800, fall: true });
+        setTimeout(() => anim(im, [{ opacity: 1 }, { opacity: 0 }], { duration: 700, fill: "forwards" }).finished.then(() => im.remove()), Math.max(1500, (p.sec || 6) * 1000 - 700));
+      });
+      return;
+    }
+    if (play.kind === "rack") {
+      /* 兵器架立在它身旁，一推，整架砸在它身上 */
+      const size = Math.min(220, W * 0.36);
+      const bx = tx + size * 0.55, by = ty + wr.height * 0.25;
+      const im = propSprite(L, p.id, size, bx, by);
+      im.style.transformOrigin = "50% 100%";
+      anim(im, [
+        { transform: "rotate(0deg)", opacity: 0 }, { offset: 0.15, transform: "rotate(3deg)", opacity: 1 },
+        { offset: 0.35, transform: "rotate(6deg)" }, { transform: "rotate(-82deg)", opacity: 1 },
+      ], { duration: 650, easing: "cubic-bezier(.6,0,.9,.5)", fill: "forwards" }).finished.then(() => {
+        sfx(0); shakeStage(15); hitFoe(1.4);
+        propBurst(L, tx, by, { n: 18, tone: ["#d6cfbf", "#ffffff"], dist: 90, size: 3, ms: 450 });
+        propBurst(L, tx, by + 20, { n: 30, tone: GRAY, dist: 140, size: 6, grow: 2, ms: 1200, up: true, flat: 0.4 });
+        anim(im, [{ transform: "rotate(-82deg)", opacity: 1 }, { transform: "rotate(-88deg) translateY(10px)", opacity: 0 }], { duration: 900, delay: 500, fill: "forwards" }).finished.then(() => im.remove());
+      });
+      return;
+    }
+  }
+
   function useProp(p) {
     const c = api.getState().combat;
     if (c.propsUsed.includes(p.id)) return;
     c.propsUsed.push(p.id);
-    if (typeof SFX !== "undefined") (PROP_SFX[p.id] || []).forEach((n, k) => setTimeout(() => SFX.play(n), k * 220));
+    propFx(p);
     if (p.effect === "stun") {
       const e = c.enemies[targetIdx];
       if (e && e.hp > 0) { e.stun = p.sec; e.charge = Math.max(0, e.charge - 0.3); }
@@ -1912,7 +2203,90 @@ const CombatUI = (() => {
     const wrap = $("btl-art-wrap");
     if (!wrap) return;
     wrap.classList.add("hitstop");
-    setTimeout(() => wrap.classList.remove("hitstop"), ms || 70);
+    clearTimeout(wrap._hsT);
+    wrap._hsT = setTimeout(() => wrap.classList.remove("hitstop"), ms || 70);
+  }
+
+  /** 挨刀的那一下：立绘顺着刀势往后一挫，闪一下暗红 */
+  function flinch(dir, k) {
+    const wrap = $("btl-art-wrap");
+    if (!wrap || !motionOk()) return;
+    const d = 10 * (k || 1);
+    wrap.style.setProperty("--fx", Math.round(Math.cos(dir) * d) + "px");
+    wrap.style.setProperty("--fy", Math.round(Math.sin(dir) * d * 0.6 + d * 0.3) + "px");
+    wrap.classList.remove("flinch");
+    void wrap.offsetWidth;
+    wrap.classList.add("flinch");
+    clearTimeout(wrap._flT);
+    wrap._flT = setTimeout(() => wrap.classList.remove("flinch"), 300);
+  }
+
+  /** 斩杀特写：最后一刀顺着刀势把立绘劈成两半，各自滑开、喷血、沉下去 */
+  let lastKill = null;
+  function killSplit(dir) {
+    const wrap = $("btl-art-wrap");
+    const img = $("btl-art");
+    if (!wrap || !img || img.hidden || !motionOk()) return null;
+    const wr = wrap.getBoundingClientRect();
+    const ir = img.getBoundingClientRect();
+    if (!ir.width || !ir.height) return null;
+    const W = ir.width, H = ir.height;
+    /* 切线过立绘偏上的中点，方向就是刀势；法线把画面分成两半 */
+    const cx = W / 2, cy = H * 0.42, nx = -Math.sin(dir), ny = Math.cos(dir);
+    const side = (x, y) => (x - cx) * nx + (y - cy) * ny;
+    const half = (sign) => {
+      const box = [[0, 0], [W, 0], [W, H], [0, H]], out = [];
+      for (let i = 0; i < 4; i++) {
+        const a = box[i], b = box[(i + 1) % 4], sa = sign * side(a[0], a[1]), sb = sign * side(b[0], b[1]);
+        if (sa >= 0) out.push(a);
+        if ((sa >= 0) !== (sb >= 0)) { const t = sa / (sa - sb); out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); }
+      }
+      return out.map((q) => `${((q[0] / W) * 100).toFixed(2)}% ${((q[1] / H) * 100).toFixed(2)}%`).join(",");
+    };
+    const pieces = [1, -1].map((sign) => {
+      const box = document.createElement("div");
+      box.className = "kill-half";
+      box.style.left = ir.left - wr.left + "px";
+      box.style.top = ir.top - wr.top + "px";
+      box.style.width = W + "px";
+      box.style.height = H + "px";
+      box.style.clipPath = `polygon(${half(sign)})`;
+      const im = document.createElement("img");
+      im.src = img.currentSrc || img.src;
+      box.appendChild(im);
+      wrap.appendChild(box);
+      return { box, sign };
+    });
+    clearWounds();
+    wrap.classList.add("split-kill");
+    /* 切口上一道暗红的线，先亮后散 */
+    const cut = document.createElement("span");
+    cut.className = "kill-cut";
+    cut.style.left = ir.left - wr.left + cx + "px";
+    cut.style.top = ir.top - wr.top + cy + "px";
+    cut.style.transform = `translate(-50%, -50%) rotate(${(dir * 180) / Math.PI}deg)`;
+    wrap.appendChild(cut);
+    const bx = ((ir.left - wr.left + cx) / wr.width) * 100, by = ((ir.top - wr.top + cy) / wr.height) * 100;
+    spawnBlood(bx, by, { n: 34, dist: 120, dir, size: 1.7, big: true });
+    spawnBlood(bx, by, { n: 34, dist: 120, dir: dir + Math.PI, size: 1.5, big: true });
+    spawnBlood(bx, by, { n: 18, dist: 60, size: 1.2 });
+    hitStop(160);
+    shakeStage(18);
+    if (typeof SFX !== "undefined") { SFX.play("gore_kill", { gain: 1.25 }); SFX.play("bone_crack", { gain: 1 }); setTimeout(() => SFX.play("gore_hit", { gain: 0.9, rate: 0.75 }), 140); }
+    const slide = 26;
+    const anims = pieces.map(({ box, sign }) => box.animate([
+      { transform: "translate(0,0) rotate(0deg)", filter: "brightness(1.6)" },
+      { offset: 0.18, transform: `translate(${nx * sign * 6}px, ${ny * sign * 6}px) rotate(0deg)`, filter: "brightness(1)" },
+      { offset: 0.55, transform: `translate(${nx * sign * slide + Math.cos(dir) * sign * 8}px, ${ny * sign * slide + 10}px) rotate(${sign * 5}deg)`, filter: "brightness(.55)" },
+      { transform: `translate(${nx * sign * slide * 1.4}px, ${ny * sign * slide + H * 0.35}px) rotate(${sign * 11}deg)`, filter: "brightness(0)", opacity: 0 },
+    ], { duration: 1150, easing: "cubic-bezier(.3,.05,.6,1)", fill: "forwards" }));
+    cut.animate([{ opacity: 1, width: "0px" }, { offset: 0.15, opacity: 1, width: W * 1.1 + "px" }, { opacity: 0, width: W * 1.2 + "px" }], { duration: 650, fill: "forwards" });
+    void anims;
+    return new Promise((r) => setTimeout(r, 1150)).then(() => {
+      pieces.forEach(({ box }) => box.remove());
+      cut.remove();
+      wrap.classList.remove("split-kill");
+    });
   }
 
   function ensureTrailCanvas() {
@@ -1926,55 +2300,84 @@ const CombatUI = (() => {
     }
     const r = wrap.getBoundingClientRect();
     /* 低分辨率画布 + 像素化放大，刀光自带像素颗粒 */
-    cv.width = Math.max(1, Math.round(r.width / 3));
-    cv.height = Math.max(1, Math.round(r.height / 3));
+    cv.width = Math.max(1, Math.round(r.width / 2));
+    cv.height = Math.max(1, Math.round(r.height / 2));
     return cv;
   }
 
+  /** 刀光：两头尖、中间粗的一条，外层朱红、里层白芯 */
   function drawTrail(cv, pts, alpha, color) {
     const ctx = cv.getContext("2d");
     ctx.clearRect(0, 0, cv.width, cv.height);
-    if (pts.length < 2) return;
-    const wrap = $("btl-art-wrap");
-    const wr = wrap.getBoundingClientRect();
+    if (!pts || pts.length < 2) return;
+    const wr = $("btl-art-wrap").getBoundingClientRect();
     const sx = cv.width / wr.width;
     const sy = cv.height / wr.height;
-    ctx.imageSmoothingEnabled = false;
-    ctx.lineCap = "square";
-    ctx.lineJoin = "miter";
-    const path = () => {
+    const P = pts.map((p) => ({ x: (p.x - wr.left) * sx, y: (p.y - wr.top) * sy }));
+    const L = [0];
+    for (let i = 1; i < P.length; i++) L.push(L[i - 1] + Math.hypot(P[i].x - P[i - 1].x, P[i].y - P[i - 1].y));
+    const total = L[L.length - 1];
+    if (total < 1) return;
+    const blade = (maxW) => {
+      const left = [];
+      const right = [];
+      for (let i = 0; i < P.length; i++) {
+        const a = P[Math.max(0, i - 1)];
+        const b = P[Math.min(P.length - 1, i + 1)];
+        let nx = -(b.y - a.y);
+        let ny = b.x - a.x;
+        const nl = Math.hypot(nx, ny) || 1;
+        nx /= nl; ny /= nl;
+        const t = L[i] / total;
+        /* 尾巴拖得长、头上收得快，像一笔刀锋 */
+        const w = maxW * Math.pow(Math.sin(Math.PI * Math.pow(t, 0.75)), 0.8) / 2;
+        left.push([P[i].x + nx * w, P[i].y + ny * w]);
+        right.push([P[i].x - nx * w, P[i].y - ny * w]);
+      }
       ctx.beginPath();
-      pts.forEach((p, i) => {
-        const x = Math.round((p.x - wr.left) * sx);
-        const y = Math.round((p.y - wr.top) * sy);
-        if (i) ctx.lineTo(x, y);
-        else ctx.moveTo(x, y);
-      });
+      ctx.moveTo(left[0][0], left[0][1]);
+      left.forEach(([x, y]) => ctx.lineTo(x, y));
+      for (let i = right.length - 1; i >= 0; i--) ctx.lineTo(right[i][0], right[i][1]);
+      ctx.closePath();
+      ctx.fill();
     };
+    const k = cv.width / Math.max(1, wr.width);
     ctx.globalAlpha = alpha;
-    path();
-    ctx.strokeStyle = color || "#9a2b1f";
-    ctx.lineWidth = 5;
-    ctx.stroke();
-    path();
-    ctx.strokeStyle = "#f4ecd8";
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    ctx.fillStyle = color || "#9a2b1f";
+    blade(Math.max(4, 16 * k));
+    ctx.fillStyle = "#d6cfbf";
+    blade(Math.max(1.5, 5 * k));
     ctx.globalAlpha = 1;
   }
 
+  /** 收笔：刀光从尾巴往刀尖缩回去，同时变淡 */
   function fadeTrail(cv, pts, color) {
     let a = 1;
+    let rest = pts.slice();
     const step = () => {
-      a -= 0.12;
-      if (a <= 0 || !cv.isConnected) {
+      a -= 0.1;
+      rest = rest.slice(Math.max(1, Math.ceil(rest.length * 0.22)));
+      if (a <= 0 || rest.length < 2 || !cv.isConnected) {
         if (cv.isConnected) cv.getContext("2d").clearRect(0, 0, cv.width, cv.height);
         return;
       }
-      drawTrail(cv, pts, a, color);
+      drawTrail(cv, rest, a, color);
       requestAnimationFrame(step);
     };
     requestAnimationFrame(step);
+  }
+
+  /** 破绽被划开：沿刀势一道白光 */
+  function spawnSlashFlash(xPct, yPct, ang) {
+    const fx = $("btl-fx");
+    if (!fx) return;
+    const f = document.createElement("span");
+    f.className = "slash-flash";
+    f.style.left = xPct + "%";
+    f.style.top = yPct + "%";
+    f.style.setProperty("--ang", (ang * 180) / Math.PI + "deg");
+    fx.appendChild(f);
+    setTimeout(() => f.remove(), 420);
   }
 
   /** 在身体上撒破绽：上半身偏多，彼此拉开距离 */
@@ -2020,7 +2423,8 @@ const CombatUI = (() => {
 
   function inkColor(st) {
     const left = st.ink / st.inkMax;
-    return left > 0.5 ? "#9a2b1f" : left > 0.2 ? "#6e1f16" : "#3d3830";
+    /* 刀光外层：墨里带一点干血；墨快尽了就褪成灰 */
+    return left > 0.5 ? "#3a0c0a" : left > 0.2 ? "#2a0a08" : "#2a2622";
   }
 
   async function startSlash() {
@@ -2048,7 +2452,9 @@ const CombatUI = (() => {
       needed, hits: 0, body: 0, enemyIdx: targetIdx, done: false, phase: "input",
       dmgType: w.dmgType || "slash", mask, img, scale, spots: [], cur: null,
       ink, inkMax: ink, pts: null, cut: [],
-      spotR: Math.max(16, 26 / scale),
+      /* 判定只比画出来的菱形略大一点：刀光真碰上了才算 */
+      spotR: 24 / (scale || 1),
+      trail: [], allHit: false,
     };
     $("btl-slash").innerHTML = "";
     showSpot(nextSpot(mask, null, []));
@@ -2061,6 +2467,8 @@ const CombatUI = (() => {
       e.preventDefault();
       if (wrap.setPointerCapture) wrap.setPointerCapture(e.pointerId);
       st.pts = [{ x: e.clientX, y: e.clientY }];
+      st.trail.push({ x: e.clientX, y: e.clientY, t: performance.now() });
+      enterBulletTime();
       sampleStroke(st.pts[0], st.pts[0]);
       if (typeof SFX !== "undefined") SFX.play("slash_whoosh");
     };
@@ -2082,13 +2490,14 @@ const CombatUI = (() => {
       if (!slashState || slashState.done) return;
       st.pts.push(p);
       if (st.pts.length > 90) st.pts.shift();
-      drawTrail(cv, st.pts, 1, inkColor(st));
+      st.trail.push({ x: p.x, y: p.y, t: performance.now() });
       if (st.ink <= 0.5) endStroke("ink");
     };
     const up = () => { if (slashState && slashState.pts && !slashState.done) endStroke("release"); };
     wrap.onpointerup = up;
     wrap.onpointercancel = up;
-    startMeleeTimer(M.baseWindowMs + M.perSpotMs * needed);
+    const tutC = api.getState().combat;
+    startMeleeTimer((M.baseWindowMs + M.perSpotMs * needed) * (tutC && tutC.tutorial && tutC.tut && tutC.tut.step === 1 ? 3 : 1));
   }
 
   /** 沿笔画采样：碰身体记擦伤，碰到当前弱点就亮下一处 */
@@ -2102,6 +2511,12 @@ const CombatUI = (() => {
       if (!m || !st.mask.solid(m.x, m.y)) continue;
       st.body++;
       if (st.body % 4 === 0) st.cut.push({ cx: x, cy: y });
+      st.dir = Math.atan2(b.y - a.y, b.x - a.x) || st.dir || 0;
+      /* 刀从肉里过，一路带出血点 */
+      if (st.body % 7 === 0) {
+        const wr = $("btl-art-wrap").getBoundingClientRect();
+        spawnBlood(((x - wr.left) / wr.width) * 100, ((y - wr.top) / wr.height) * 100, { n: 3, dist: 22, dir: st.dir, size: 0.8 });
+      }
       if (st.cur && Math.hypot(m.x - st.cur.x, m.y - st.cur.y) <= st.spotR) {
         hitSpot(x, y);
         if (!slashState || slashState.done) return;
@@ -2116,24 +2531,45 @@ const CombatUI = (() => {
     st.hits++;
     st.cur = null;
     const wr = $("btl-art-wrap").getBoundingClientRect();
-    spawnBlood(((cx - wr.left) / wr.width) * 100, ((cy - wr.top) / wr.height) * 100);
-    hitStop(45);
-    if (typeof SFX !== "undefined") SFX.play(hitSoundFor(st.dmgType, api.getState().combat.enemies[st.enemyIdx]));
-    if (st.hits >= st.needed) return endStroke("done");
+    const xp = ((cx - wr.left) / wr.width) * 100;
+    const yp = ((cy - wr.top) / wr.height) * 100;
+    /* 顺着刀势一大蓬，再往两侧崩几点 */
+    spawnBlood(xp, yp, { n: 26, dist: 90, dir: st.dir || 0, size: 1.5, big: true });
+    spawnBlood(xp, yp, { n: 8, dist: 30, size: 1 });
+    spawnSlashFlash(xp, yp, st.dir || 0);
+    addWound(xp, yp, ((st.dir || 0) * 180) / Math.PI, st.dmgType);
+    hitStop(110);
+    shakeStage(7);
+    flinch(st.dir || 0, 1);
+    goreHit(st.dmgType, api.getState().combat.enemies[st.enemyIdx], st.hits + 1 >= st.needed && st.needed > 1);
+    /* 全中了也不收笔：让刀顺势划完，松手或稍后再结算 */
+    if (st.hits >= st.needed) { st.allHit = true; st.allHitAt = performance.now(); return; }
     showSpot(nextSpot(st.mask, st.spots[st.spots.length - 1], st.spots));
   }
 
+  /** 划刀计时：落笔后时间放慢，计时也跟着慢；每帧重画刀光，旧的一截自己褪掉 */
+  const TRAIL_MS = 260;
   function startMeleeTimer(ms) {
     const bar = $("slash-timer");
     const fill = $("slash-timer-fill");
     if (bar && fill) { bar.hidden = false; fill.style.transform = "scaleX(1)"; }
-    const t0 = performance.now();
+    let used = 0;
+    let last = performance.now();
     const tick = (now) => {
       const st = slashState;
       if (!st || st.done) return;
-      const p = Math.max(0, 1 - (now - t0) / ms);
+      used += (now - last) * (bulletOn ? BULLET.timer : 1);
+      last = now;
+      const p = Math.max(0, 1 - used / ms);
       if (fill) fill.style.transform = `scaleX(${p})`;
+      const cv = $("slash-trail");
+      if (cv && st.trail.length) {
+        while (st.trail.length > 2 && now - st.trail[0].t > TRAIL_MS) st.trail.shift();
+        drawTrail(cv, st.trail, 1, inkColor(st));
+      }
       if (p <= 0) return endStroke("time");
+      /* 弱点都破了：再让刀走一小会儿（够划出去），没松手也收 */
+      if (st.allHit && now - st.allHitAt > 420) return endStroke("done");
       slashRaf = requestAnimationFrame(tick);
     };
     slashRaf = requestAnimationFrame(tick);
@@ -2147,7 +2583,7 @@ const CombatUI = (() => {
     unbindSlashInput();
     hideTimer();
     const cv = $("slash-trail");
-    if (cv && st.pts) fadeTrail(cv, st.pts, inkColor(st));
+    if (cv && st.trail && st.trail.length > 1) fadeTrail(cv, st.trail, inkColor(st));
     setTimeout(() => { const l = $("btl-slash"); if (l) l.innerHTML = ""; }, 260);
     const s = api.getState();
     const c = s.combat;
@@ -2172,6 +2608,7 @@ const CombatUI = (() => {
     if (dealt > 0 && enemy && enemy.hp > 0) {
       if (mult > 1) consumeCounter();
       enemy.hp -= dealt;
+      tutOnHit(enemy);
       /* 刺打疾行的，额外把它的冲势顶回去 */
       pushCharge(st.enemyIdx, (st.hits ? 0.18 * st.hits : 0.08) * (hitType === "pierce" && enemyKind(enemy) === "swift" ? 1.8 : 1));
       const wr = $("btl-art-wrap").getBoundingClientRect();
@@ -2186,7 +2623,8 @@ const CombatUI = (() => {
       const full = st.hits >= st.needed;
       popDamage(xPct, yPct, full && st.needed > 1 ? `尽中 ${dealt}` : String(dealt), full ? "crit" : "");
       pulseArt("hit-flash");
-      shakeStage(full ? 10 : 5);
+      shakeStage(full ? 15 : 8);
+      flinch(st.dir || 0, full ? 1.6 : 1);
       const line = graze
         ? `刀锋擦身而过，${enemy.name}只受了 ${dealt} 点皮肉伤。`
         : full
@@ -2207,7 +2645,7 @@ const CombatUI = (() => {
     paintHp();
     paintFoes({ portrait: false });
     if (api.onHud) api.onHud();
-    if (enemy && enemy.hp <= 0) return onEnemyKilled(st.enemyIdx);
+    if (enemy && enemy.hp <= 0) { lastKill = { melee: true, dir: st.dir || 0 }; return onEnemyKilled(st.enemyIdx); }
     afterAction(weaponCooldownMs(w));
   }
 
@@ -2548,8 +2986,13 @@ const CombatUI = (() => {
           }
         }
         pulseArt("hit-flash");
-        if (typeof SFX !== "undefined") SFX.play("enemy_hit");
+        if (typeof SFX !== "undefined") {
+          SFX.play("enemy_hit");
+          SFX.play("gore_hit", { gain: 0.9 });
+          if (band === 0) setTimeout(() => SFX.play("bone_crack"), 30);
+        }
         enemy.hp -= dmg;
+        tutOnHit(enemy);
         if (counterMult() > 1) consumeCounter();
         pushCharge(shootState.enemyIdx, band === 0 ? 0.45 : 0.3);
         if (enemy.hp <= 0) killed = true;
@@ -2671,8 +3114,72 @@ const CombatUI = (() => {
     return "bite";
   }
 
+  /* ========== 新手引导：浮在画面上方的提示条 ========== */
+  function coach(html) {
+    let el = $("coach");
+    if (!html) { if (el) el.hidden = true; return; }
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "coach";
+      el.className = "coach";
+      el.setAttribute("role", "status");
+    }
+    /* 战斗中贴在战法按钮正上方，不挡立绘；其余时候浮在页面上方 */
+    const cmds = active ? $("commands") : null;
+    if (cmds && cmds.parentNode) {
+      if (el.nextSibling !== cmds) cmds.parentNode.insertBefore(el, cmds);
+      el.classList.add("docked");
+    } else if (el.parentNode !== document.body) {
+      document.body.appendChild(el);
+      el.classList.remove("docked");
+    }
+    if (el.dataset.src !== html) {
+      el.dataset.src = html;
+      el.innerHTML = typeof I18N !== "undefined" && I18N.tr ? I18N.tr(html) : html;
+    }
+    el.hidden = false;
+  }
+
+  /* 开局教学战：1 先学划刀（敌人不动）→ 2 学格挡（圈放慢）→ 3 放开打；这一场打不死人 */
+  function tutCoach() {
+    const c = api.getState().combat;
+    if (!c || !c.tutorial || !c.tut) return;
+    const t = c.tut;
+    if (t.step === 1) {
+      coach(phase === "slash"
+        ? "按住鼠标或手指，<b>从它身上划过去</b>。划过发亮的破绽，伤害更高。"
+        : "点下方的<b>「攻击」</b>出刀。");
+    } else if (t.step === 2) {
+      if (rt && rt.windup) coach("<b>点那个圈，或按空格</b>格挡。圈变成金色的那一下最好。");
+      else coach(t.missed ? "慢了一步。它还会再扑，<b>圈变金色时</b>点它。" : "它要扑上来了，盯住它……");
+    } else if (t.step === 3) {
+      coach(performance.now() < t.until ? "挡住了！圈变金色时挡，还能趁机反击。<b>把它砍倒。</b>" : null);
+    }
+  }
+
+  function tutOnHit(enemy) {
+    const c = api.getState().combat;
+    if (!c || !c.tutorial || !c.tut) return;
+    if (c.tut.step < 3 && enemy.hp <= 0) enemy.hp = Math.max(6, Math.round(enemy.maxHp * 0.15));
+    if (c.tut.step === 1) {
+      c.tut.step = 2;
+      enemy.charge = Math.max(enemy.charge || 0, 0.55);
+    }
+  }
+
+  function tutOnStrike(parried) {
+    const s = api.getState();
+    const c = s.combat;
+    if (!c || !c.tutorial || !c.tut) return;
+    if (s.hp < 40) s.hp = 40;
+    if (c.tut.step !== 2) return;
+    if (parried) { c.tut.step = 3; c.tut.until = performance.now() + 5000; }
+    else c.tut.missed = true;
+  }
+
   function rtStart() {
     const c = api.getState().combat;
+    if (c && c.tutorial && !c.tut) c.tut = { step: 1 };
     c.enemies.forEach((e) => {
       if (e.charge == null) e.charge = Math.random() * 0.35;
       if (!e.intent) e.intent = pickIntent(c, e);
@@ -2701,12 +3208,14 @@ const CombatUI = (() => {
     rt.last = now;
     if (document.body.classList.contains("bag-managing")) dt *= RT().bagScale;
     if (now < rt.slowUntil) dt *= 0.5;
+    if (bulletOn) dt *= BULLET.world;
     if (!rt.anim) {
       if (rt.windup) {
         if (now - rt.windup.t0 >= rt.windup.dur) resolveStrike(null);
       } else {
+        const tutHold = c.tutorial && c.tut && c.tut.step === 1;
         c.enemies.forEach((e, i) => {
-          if (e.hp <= 0) return;
+          if (e.hp <= 0 || tutHold) return;
           if (e.stun > 0) { e.stun -= dt; return; }
           const rate = ((i === targetIdx ? 1 : RT().sideRate) * (e.speed || 1)) / (intentOf(e).time * (c.boss ? 0.8 : 1));
           e.charge = Math.min(1, e.charge + dt * rate);
@@ -2718,6 +3227,7 @@ const CombatUI = (() => {
     }
     updateFoeBars();
     if (!rt) return;
+    if (c.tutorial) tutCoach();
     if (now - (rt.hudAt || 0) > 400) { rt.hudAt = now; paintHp(); }
   }
 
@@ -2762,7 +3272,7 @@ const CombatUI = (() => {
     const interrupted = phase === "slash" || phase === "shoot" || phase === "reload" || phase === "switch";
     cancelPlayerAction();
     if (document.body.classList.contains("bag-managing")) closeBag({ force: true });
-    rt.windup = { idx, t0: performance.now(), dur: RT().windupMs * loadFx().ring };
+    rt.windup = { idx, t0: performance.now(), dur: RT().windupMs * loadFx().ring * (c.tutorial ? 1.8 : 1) };
     const howl = e.intent === "howl";
     setMsg(howl ? `${e.name}仰起头来——要叫人了！` : `${e.name}要${intentOf(e).name}了！点圈或按空格格挡`);
     if (interrupted) toastBag("被打断了");
@@ -2892,7 +3402,7 @@ const CombatUI = (() => {
         setMsg(parry ? `格挡 · 气血 -${dmg}` : `${e.name}${it.act} · 气血 -${dmg}`);
         api.log(`${e.name}${it.act}，气血 -${dmg}（剩 ${Math.max(0, s.hp)}/${WORLD.maxHp}）`, "sys");
         if (parry) playParry(parry);
-        playPlayerHurt(dmg);
+        playPlayerHurt(dmg, idx);
         /* 被咬中一口，那股饥渴就往里钻一分 */
         s.corruption = Math.min(100, (s.corruption || 0) + 2);
         /* 患疫的咬中了，那股疫气往身子里钻 */
@@ -2902,6 +3412,7 @@ const CombatUI = (() => {
         }
       }
     }
+    if (c.tutorial) tutOnStrike(!!parry);
     e.charge = 0;
     e.intent = pickIntent(c, e);
     c.enemies.forEach((o) => { if (o !== e && o.hp > 0) o.charge = Math.min(o.charge, RT().afterStrikeCap); });
@@ -2932,10 +3443,12 @@ const CombatUI = (() => {
     const allDown = !alive(c).length;
     if (rt) rt.anim = true;
     setMsg(allDown ? "残影散尽…" : "其影倒下…");
-    if (typeof SFX !== "undefined") SFX.play("kill");
+    if (typeof SFX !== "undefined") { SFX.play("kill"); SFX.play("gore_kill"); }
     if (typeof BGM !== "undefined" && BGM.sting && !allDown) BGM.sting("kill");
     showMainMenu();
-    playDeathAnim().then(() => {
+    const kill = lastKill;
+    lastKill = null;
+    playDeathAnim(kill).then(() => {
       if (!active) return;
       clearWounds();
       clearFx();
@@ -2971,15 +3484,32 @@ const CombatUI = (() => {
     if (typeof SFX !== "undefined") SFX.play(foe && foe.intent === "claw" ? "claw" : "lunge");
   }
 
-  function playPlayerHurt(dmg) {
+  /** 爪痕：落在出手那只身上（后排的落在后排），三道两头尖的裂口，黑边、里头干血 */
+  function playPlayerHurt(dmg, idx) {
     const st = document.querySelector(".stage-col");
-    if (st) {
-      const claw = document.createElement("div");
-      claw.className = "claw-marks";
-      claw.style.setProperty("--rot", -28 + Math.random() * 20 + "deg");
-      claw.innerHTML = "<i></i><i></i><i></i>";
-      st.appendChild(claw);
-      setTimeout(() => claw.remove(), 700);
+    const wrap = $("btl-art-wrap");
+    if (st && wrap) {
+      const sr = st.getBoundingClientRect();
+      const wr = wrap.getBoundingClientRect();
+      const back = idx != null && idx !== targetIdx ? backEl(idx) : null;
+      let cx, cy, size;
+      if (back) {
+        const br = back.getBoundingClientRect();
+        cx = br.left + br.width / 2; cy = br.top + br.height * 0.4; size = br.height * 0.75;
+      } else {
+        cx = wr.left + (lastRingAt.x / 100) * wr.width; cy = wr.top + (lastRingAt.y / 100) * wr.height; size = wr.height * 0.7;
+      }
+      size = Math.max(90, Math.min(size, 320));
+      const cv = document.createElement("canvas");
+      cv.className = "claw-marks";
+      const PX = 2; /* 每 2 屏幕像素一个画布像素：细颗粒 */
+      cv.width = Math.round(size / PX); cv.height = Math.round(size / PX);
+      cv.style.width = size + "px"; cv.style.height = size + "px";
+      cv.style.left = cx - sr.left - size / 2 + "px";
+      cv.style.top = cy - sr.top - size / 2 + "px";
+      drawClaws(cv);
+      st.appendChild(cv);
+      setTimeout(() => cv.remove(), 760);
     }
     shakeStage(Math.min(18, 8 + dmg / 4));
     if (api.screenHit) api.screenHit();
@@ -2997,6 +3527,54 @@ const CombatUI = (() => {
     if (typeof SFX !== "undefined") {
       SFX.play("wound");
       SFX.play("slash_hit");
+    }
+  }
+
+  function drawClaws(cv) {
+    const ctx = cv.getContext("2d");
+    const W = cv.width, H = cv.height;
+    const ang = (-0.95 + (Math.random() - 0.5) * 0.35); /* 右上往左下 */
+    const dx = Math.cos(ang), dy = -Math.sin(ang);
+    const nx = -dy, ny = dx;
+    const len = W * 0.86;
+    const gap = W * 0.17;
+    for (let k = -1; k <= 1; k++) {
+      const off = k * gap + (Math.random() - 0.5) * gap * 0.2;
+      const L = len * (k === 0 ? 1 : 0.86 + Math.random() * 0.08);
+      const ox = W / 2 + nx * off - (dx * L) / 2, oy = H / 2 + ny * off - (dy * L) / 2;
+      const maxW = W * (k === 0 ? 0.075 : 0.06);
+      const N = 26;
+      const left = [], right = [];
+      for (let i = 0; i <= N; i++) {
+        const t = i / N;
+        /* 起爪重、收爪拖出细尾，边上带一点毛刺 */
+        const w = (maxW * Math.pow(Math.sin(Math.PI * Math.pow(t, 0.6)), 0.9) + (Math.random() - 0.5) * maxW * 0.25) / 2;
+        const px = ox + dx * L * t, py = oy + dy * L * t;
+        left.push([px + nx * w, py + ny * w]); right.push([px - nx * w * 0.8, py - ny * w * 0.8]);
+      }
+      const path = (grow) => {
+        ctx.beginPath();
+        left.forEach(([x, y], i) => (i ? ctx.lineTo(x + nx * grow, y + ny * grow) : ctx.moveTo(x + nx * grow, y + ny * grow)));
+        for (let i = right.length - 1; i >= 0; i--) ctx.lineTo(right[i][0] - nx * grow, right[i][1] - ny * grow);
+        ctx.closePath();
+      };
+      ctx.fillStyle = "#0b0908"; path(1.2); ctx.fill();
+      ctx.fillStyle = "#4a0d0b"; path(0); ctx.fill();
+      ctx.fillStyle = "#1c0505"; path(-maxW * 0.18); ctx.fill();
+      /* 裂口里一道亮一点的肉色高光，偏一侧 */
+      ctx.strokeStyle = "rgba(150, 60, 50, .55)"; ctx.lineWidth = 1;
+      ctx.beginPath();
+      left.slice(4, N - 4).forEach(([x, y], i) => { const X = x - nx * 1.2, Y = y - ny * 1.2; i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); });
+      ctx.stroke();
+      /* 甩出的血点 */
+      for (let j = 0; j < 7; j++) {
+        const t = 0.15 + Math.random() * 0.8;
+        const sd = (Math.random() < 0.5 ? -1 : 1) * (maxW * 0.6 + Math.random() * maxW * 1.6);
+        const x = ox + dx * L * t + nx * sd, y = oy + dy * L * t + ny * sd;
+        const r = Math.random() < 0.3 ? 2 : 1;
+        ctx.fillStyle = Math.random() < 0.5 ? "#3a0807" : "#0b0908";
+        ctx.fillRect(Math.round(x), Math.round(y), r, r);
+      }
     }
   }
 
@@ -3139,6 +3717,7 @@ const CombatUI = (() => {
       return;
     }
     cancelCarry(true);
+    if (!active) coach(null);
     if (typeof SFX !== "undefined") SFX.play("belt");
     const fromBattle = modal.dataset.fromBattle === "1";
     selectedUid = null;
@@ -3811,6 +4390,7 @@ const CombatUI = (() => {
 
   function close() {
     rtStop();
+    coach(null);
     artAnimToken++;
     clearSlash();
     clearShootFx();
@@ -3857,5 +4437,5 @@ const CombatUI = (() => {
     return true;
   };
 
-  return { open, close, bind, openBag, openBagSession, closeBag, paintBag, ensureDom, debugKillFront };
+  return { open, close, bind, openBag, openBagSession, closeBag, paintBag, ensureDom, debugKillFront, coach };
 })();

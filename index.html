@@ -8,8 +8,8 @@
   <meta name="theme-color" content="#0c0a08" />
   <title>长生劫 · 赴京</title>
   <link rel="preload" href="fonts/fusion-pixel-12px.woff2" as="font" type="font/woff2" crossorigin />
-  <link rel="stylesheet" href="style.css?v=px3" />
-  <link rel="stylesheet" href="pixel.css?v=pr4" />
+  <link rel="stylesheet" href="style.css?v=back2" />
+  <link rel="stylesheet" href="pixel.css?v=prop1" />
   <!-- 内联兜底：style.css 没加载时，至少藏起血丝、开场不至于散架 -->
   <style id="boot-css">
     html, body { margin: 0; background: #0c0a08; }
@@ -90,17 +90,17 @@
     <div class="mountains" aria-hidden="true"></div>
     <div class="scroll">
       <div class="scroll-inner">
-        <p class="seal" id="op-seal">敕</p>
+        <p class="seal" id="op-seal" data-no-i18n>敕</p>
         <h1 class="op-title" id="op-title">长生劫</h1>
         <p class="op-sub" id="op-sub">赴京篇</p>
         <div class="op-text" id="op-text"></div>
         <div class="op-actions">
           <button type="button" class="brush-btn" id="op-next">继续</button>
-          <button type="button" class="brush-btn ghost" id="op-skip">跳过</button>
         </div>
       </div>
     </div>
     <p class="op-progress" id="op-progress"></p>
+    <button type="button" class="op-skip-top" id="op-skip">跳过序章 ›</button>
   </div>
 
   <!-- 游戏本体：左场景窗 + 右残卷 + 底栏 -->
@@ -270,21 +270,24 @@
     <div class="screen-fx-flash"></div>
   </div>
 
+  <script src="platform.js?v=cg2"></script>
   <script src="i18n.js?v=i4"></script>
-  <script src="i18n-en.js?v=pr1"></script>
-  <script src="data.js?v=dp1"></script>
+  <script src="i18n-en.js?v=proof1"></script>
+  <script src="data.js?v=npc1"></script>
   <script src="icon-bounds.js?v=ic4"></script>
-  <script src="enemy-hit-points.js?v=lc1"></script>
+  <script src="enemy-hit-points.js?v=g2"></script>
   <script src="asset-loader.js?v=px1"></script>
-  <script src="sfx.js?v=fs1"></script>
+  <script src="sfx.js?v=prop1"></script>
   <script src="bgm.js?v=fx105"></script>
-  <script src="score.js?v=au1"></script>
-  <script src="combat.js?v=dp1"></script>
+  <script src="vendor/sfxbrew-engine.js?v=form1"></script>
+  <script src="vendor/sfxbrew-music.js?v=dark1"></script>
+  <script src="score.js?v=dark1"></script>
+  <script src="combat.js?v=g2"></script>
   <script src="firearm.js?v=dp1"></script>
-  <script src="combat-ui.js?v=pr4"></script>
-  <script src="opening.js?v=i1"></script>
+  <script src="combat-ui.js?v=walk1"></script>
+  <script src="opening.js?v=proof1"></script>
   <script src="codex.js?v=au1"></script>
-  <script src="game.js?v=fs1"></script>
+  <script src="game.js?v=npc3"></script>
   <script src="ui-shell.js?v=au1"></script>
 </body>
 </html>

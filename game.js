@@ -1048,7 +1048,7 @@
     _backdropLoc = S.loc;
     /* 豆包 Seedream 生成的地点背景图 */
     if (el.locBackdrop) {
-      el.locBackdrop.style.backgroundImage = `url("assets/locations/${S.loc}.jpg?v=px3")`;
+      el.locBackdrop.style.setProperty("background-image", `url("assets/locations/${S.loc}.jpg?v=px3")`);
       el.locBackdrop.style.backgroundSize = "cover";
       el.locBackdrop.style.backgroundPosition = "center";
     }
@@ -1404,8 +1404,17 @@
   }
 
   function childCoda(kind) {
+    if (kind === "good" && S.flags.has("child_safe")) {
+      return "\n\n出城的时候，你想起菜市口那间肉铺。门板后头，该有个孩子在学着剁肉了。";
+    }
+    if (kind === "good" && S.flags.has("child_following")) {
+      return "\n\n孩子趴在你背上睡着了。出了城，雪小了些。";
+    }
     if (kind === "good" && S.flags.has("saved_child")) {
       return "\n\n出城的时候，你恍惚听见荒村那孩子在说：瓶子没了，多谢你。";
+    }
+    if (kind === "bad" && S.flags.has("child_fled")) {
+      return "\n\n那孩子跑进风雪之前回头看你的那一眼，你再也忘不掉。";
     }
     if (kind === "bad" && S.flags.has("left_child")) {
       return "\n\n雪夜里那一声没人应的哭，又在你耳边响了起来。";
@@ -1520,6 +1529,10 @@
         }
         lootIds.push("jade_chip");
       }
+      if (c.id === "intro_ghoul") {
+        lootIds.push("pudi_dao", "mantou");
+        log("伙计倒在门槛上，手边落着一口朴刀，怀里还揣着个冻硬的馒首。", "sys");
+      }
       if (c.id === "gate_chain") {
         if (!bagHas(S, "armor_scale")) {
           lootIds.push("armor_scale");
@@ -1590,6 +1603,16 @@
         if (lootIds.length) {
           beginLootSession(lootIds, { reason: "loot" });
         }
+        if (c.id === "intro_ghoul") {
+          log("鸟铳还在兵器架上，交战时点「换武」就能换上。进京的路有好几条，点下方「赴京图」择路而行。", "sys");
+          let tries = 0;
+          const waitBag = setInterval(() => {
+            if (document.body.classList.contains("bag-managing")) {
+              clearInterval(waitBag);
+              CombatUI.coach("把<b>朴刀</b>拖到兵器架上，<b>馒首</b>拖进行囊；嫌麻烦就点<b>「全部收入」</b>。");
+            } else if (++tries > 40) clearInterval(waitBag);
+          }, 200);
+        }
       }
       return;
     } else if (result === "flee") {
@@ -1655,9 +1678,13 @@
         },
       ],
       village: [
-        () => "你循着哭声寻到柴房，里头缩着一个饿得发昏的孩子。",
+        () => (S.flags.has("child_found") || S.flags.has("saved_child") || S.flags.has("left_child")
+          ? "柴房里一堆冷柴，地上有个小小的窝，是孩子蜷过的。"
+          : "柴房那边传来孩子的哭声，断断续续的。"),
         () => "井水红中带黑，井壁上刻着四个字：药过人变。" + (highCorr ? "你低头往井里看，水中的倒影嘴唇在动，你却并没有开口。" : ""),
         () => {
+          if (S.flags.has("child_following")) return "孩子攥紧了你的衣角，不肯往柴房那边看。";
+          if (S.flags.has("child_safe")) return "柴房空着。那孩子如今在菜市口的肉铺里，总算有口热饭吃。";
           if (S.flags.has("saved_child")) return "柴房门半掩着，那孩子睡着了，手里还攥着半块饼。";
           if (S.flags.has("left_child")) return "柴房空了，地上留着一串小小的手印，朝门外去了。";
           return "村里静得出奇，连鸡犬之声都听不见。";
@@ -2025,6 +2052,7 @@
 
   function doMove(link) {
     S.npcFlash = null;
+    childCheck();
     const chance = ambushChance(S.elapsed);
     const riskyFight =
       link.risky &&
@@ -2142,11 +2170,23 @@
           S.hp = Math.min(WORLD.maxHp, S.hp + Math.round(17 * corrFx(S).food));
           S.stamina = Math.min(maxStaminaOf(S), S.stamina + 50);
           log(`你靠着残墙坐下，就着${isNight(S.elapsed) ? "夜色" : "雪光"}吃了${it.name}，气血稍复。`);
+          if (S.flags.has("child_following")) {
+            const more = cheapestFood();
+            if (more) {
+              bagRemoveUid(S, more.uid);
+              log(`孩子也分到一样${WORLD.items[more.id].name}，捧着小口小口地吃。`);
+            } else {
+              hunger(WORLD.hunger.rest);
+              log("没有多的吃的，你把自己那份掰了一半给孩子。");
+            }
+          }
         } else {
           hunger(WORLD.hunger.rest);
           S.hp = Math.min(WORLD.maxHp, S.hp + 4);
           S.stamina = Math.min(maxStaminaOf(S), S.stamina + 25);
-          log("身上没有吃的，你空着肚子靠墙眯了一会儿，饿得睡不踏实。");
+          log(S.flags.has("child_following")
+            ? "身上没有吃的。孩子靠着你，肚子咕咕地叫，一声也没吭。你们俩空着肚子眯了一会儿。"
+            : "身上没有吃的，你空着肚子靠墙眯了一会儿，饿得睡不踏实。");
         }
         /* 休息时游荡敌人可能靠近 */
         if (S.wander && Math.random() < 0.3) {
@@ -2243,29 +2283,21 @@
         }),
       );
     }
-    if (
-      S.flags.has("hear_child") &&
-      S.loc === "village" &&
-      !S.flags.has("saved_child") &&
-      !S.flags.has("left_child")
-    ) {
-      acts.push(
-        btn("救出孩童", "", () => {
-          S.flags.add("saved_child");
-          const food = cheapestFood();
-          if (food) bagRemoveUid(S, food.uid);
-          log(food
-            ? `你把${WORLD.items[food.id].name}塞给他。他吃了几口，抬手指着北边说：官爷，瓶子，往京城去了。`
-            : "你身上没有吃的，只把他裹进怀里焐了一阵。他缓过气来，抬手指着北边说：官爷，瓶子，往京城去了。");
-          render();
-        }),
-        btn("不加理会", "", () => {
-          S.flags.add("left_child");
-          S.corruption += 17;
-          log("哭声渐渐被风雪捂住了。你脚下轻快了，心里却沉了下去。");
-          render();
-        }),
-      );
+    if (S.loc === "village" && S.flags.has("hear_child") && !S.flags.has("saved_child") && !S.flags.has("left_child")) {
+      const found = S.flags.has("child_found");
+      acts.push(btn(found ? "去柴房看那孩子" : "循着哭声找去", found ? "他还缩在柴堆后头" : "柴房那边", () => {
+        S.flags.add("child_found");
+        render();
+        talk("child", childMeet());
+      }));
+    }
+    /* 带着孩子：到菜市口托给肉铺老汉 */
+    if (S.loc === "caishikou" && S.flags.has("child_following") && S.flags.has("butcher_thanked")) {
+      acts.push(btn("把孩子托给肉铺老汉", "他有铺子，有口吃的", () => {
+        S.npcFlash = { id: "butcher", loc: S.loc };
+        render();
+        talk("butcher", childHandover());
+      }));
     }
     if (
       !S.flags.has("saw_throne") &&
@@ -2387,48 +2419,184 @@
     paintTrade(left > 0 ? "好，好。还有么？" : "库里能拿的都给你了。往后的路，你自个儿当心。");
   }
 
+  /* ---------- 荒村孩童：找着 → 喂 → 带走 → 托给菜市口肉铺老汉 ---------- */
+  function childMeet() {
+    if (corrTier(S) >= 2) {
+      return {
+        lines: ["柴堆后头缩着个孩子。他抬头看清了你的眼睛，尖叫一声，从后窗翻了出去，光着脚跑进了雪里。"],
+        choices: [{ label: "……", fn: () => { S.flags.add("left_child"); S.flags.add("child_fled"); return null; } }],
+      };
+    }
+    const food = cheapestFood();
+    return {
+      lines: [
+        "柴堆后头缩着个七八岁的孩子，剃着童子头，冻得嘴唇发紫，怀里死死抱着半块干饼。他见了你，直往柴堆里缩。",
+        "孩子：别吃我……我不是那个……",
+      ],
+      choices: [
+        {
+          label: food ? "给他吃的" : "把他裹进怀里焐一阵",
+          sub: food ? `给出${WORLD.items[food.id].name}` : "你身上没有吃的",
+          fn: () => {
+            if (food) bagRemoveUid(S, food.uid);
+            return {
+              lines: [
+                food ? `他接过${WORLD.items[food.id].name}就往嘴里塞，噎得直咳，吃完了才敢抬眼看你。` : "你把他裹进怀里。他身上冰凉，过了好一阵才不抖了。",
+                "孩子：前些日子有个官爷打这儿过，怀里揣着一只瓶子，往京城去了。我娘去追他讨药，就没回来。",
+                "你问他还有没有亲人。他摇摇头，伸手攥住了你的衣角。",
+              ],
+              choices: [
+                {
+                  label: "带他走",
+                  sub: "找个能落脚的人家 · 歇脚时他也要吃一口",
+                  fn: () => {
+                    S.flags.add("saved_child");
+                    S.flags.add("child_following");
+                    return {
+                      lines: [
+                        "你把他背到背上。他轻得像一捆柴。",
+                        "你想起路上听人说过，城里菜市口有个卖肉的老汉还守着铺子。",
+                      ],
+                      choices: [{ label: "上路", fn: () => null }],
+                    };
+                  },
+                },
+                {
+                  label: "让他闩好门等着",
+                  sub: "你自己上路",
+                  fn: () => {
+                    S.flags.add("left_child");
+                    S.corruption = Math.min(100, (S.corruption || 0) + 8);
+                    return {
+                      lines: ["你叫他闩好柴房门，谁叫也别开。他点点头，眼睛却一直跟着你走到门口。"],
+                      choices: [{ label: "走了", fn: () => null }],
+                    };
+                  },
+                },
+              ],
+            };
+          },
+        },
+        {
+          label: "不加理会",
+          fn: () => {
+            S.flags.add("left_child");
+            S.corruption = Math.min(100, (S.corruption || 0) + 17);
+            return {
+              lines: ["你转身出了柴房。身后那哭声又起来了，渐渐被风雪捂住。你脚下轻快了，心里却沉了下去。"],
+              choices: [{ label: "走了", fn: () => null }],
+            };
+          },
+        },
+      ],
+    };
+  }
+
+  function childHandover() {
+    return {
+      lines: [
+        "肉铺老汉开了门，看看你，又看看你背上的孩子。",
+        "老汉：哪儿捡的？",
+        "你把荒村柴房的事说了。老汉半天没吭声，末了叹了口气，把门板拉开一条缝。",
+        "老汉：进来吧。我这儿别的没有，肉还剩几斤，饿不着他。",
+        "孩子从你背上滑下来，回头看了你一眼，跟着进去了。",
+      ],
+      choices: [{
+        label: "托付给他",
+        fn: () => {
+          S.flags.delete("child_following");
+          S.flags.add("child_safe");
+          return {
+            lines: ["老汉又从门缝里塞出一包东西：路上吃。门板合上了，里头传来孩子的声音，在问肉怎么剁。"],
+            choices: [{ label: "走了", fn: () => null }],
+            after: () => {
+              S.npcFlash = null;
+              render();
+              beginLootSession(["jerky", "sauce_meat"], { reason: "pickup" });
+            },
+          };
+        },
+      }],
+    };
+  }
+
+  /** 孩子跟着你：心火到了「狂」，他会害怕跑掉 */
+  function childCheck() {
+    if (!S.flags.has("child_following") || corrTier(S) < 2) return;
+    S.flags.delete("child_following");
+    S.flags.add("child_fled");
+    log("你回头时，孩子正盯着你的眼睛看。他慢慢松开了你的衣角，往后退了两步，转身跑进了风雪里。");
+  }
+
+  /* ---------- 地窖里的千总：喂他 → 挑铁甲或令箭 → 他往西山去了 ---------- */
+  function officerMeet() {
+    const food = cheapestFood();
+    const farewell = (got, line) => ({
+      lines: [
+        line,
+        "千总：我留在这儿也是等死。听说西山寺里还有和尚，我往那边走走看。",
+        "他扶着墙爬出地窖，拄着半截枪杆，一步一步往西去了。",
+      ],
+      choices: [{ label: "保重", fn: () => null }],
+      after: () => beginLootSession([got], { reason: "pickup" }),
+    });
+    return {
+      lines: [
+        "你掀开木板。地窖里蜷着个穿千总号衣的汉子，饿得只剩一把骨头，一只手护着胸口，眼睛却还亮。",
+        "千总：有吃的没有？我在这底下躲了半个月，上头那些东西，原先都是我带的兵。",
+      ],
+      choices: [
+        {
+          label: "给他吃的",
+          sub: food ? `给出${WORLD.items[food.id].name}` : "你身上没有吃的",
+          disabled: !food,
+          fn: () => {
+            bagRemoveUid(S, food.uid);
+            S.flags.add("officer_saved");
+            return {
+              lines: [
+                `他接过${WORLD.items[food.id].name}，狼吞虎咽吃了，喘匀了气。`,
+                "千总：我身上这领铁甲，还有一支令箭。瓮城里那帮溃兵是我的人，见了令箭兴许还认得。你挑一样拿去。",
+              ],
+              choices: [
+                {
+                  label: "要他的铁甲", sub: "刀枪难入，也沉得很",
+                  fn: () => { S.flags.add("officer_done"); return farewell("iron_armor", "千总把铁甲一片片解下来交给你。"); },
+                },
+                {
+                  label: "要他的令箭", sub: "瓮城的溃兵认得",
+                  fn: () => { S.flags.add("officer_done"); return farewell("military_order", "千总把令箭塞进你手里，手还在抖。"); },
+                },
+              ],
+            };
+          },
+        },
+        {
+          label: "盖上板子走开",
+          fn: () => {
+            S.flags.add("officer_done");
+            S.corruption = Math.min(100, (S.corruption || 0) + 8);
+            return {
+              lines: ["你把木板盖了回去。走出营门老远，那喊声还跟在你身后。"],
+              choices: [{ label: "走了", fn: () => null }],
+            };
+          },
+        },
+        ...(food ? [] : [{ label: "先去找吃的", sub: "过会儿再来", fn: () => null }]),
+      ],
+    };
+  }
+
   /** 支线：营盘千总、菜市口肉铺、药局熬药 */
   function sideQuestActs(acts) {
     if (S.loc === "barracks" && S.flags.has("officer_heard") && !S.flags.has("officer_done")) {
-      if (!S.flags.has("officer_saved")) {
-        acts.push(
-          btn("掀开地窖", "里头的人要吃的", () => {
-            if (typeof SFX !== "undefined") SFX.play("creak");
-            if (shunned("地窖里那汉子刚抬起头，看清你的脸，便尖叫一声缩进最深处，再怎么叫也不肯出来。")) return;
-            const food = cheapestFood();
-            if (!food) {
-              log("地窖里蜷着个穿千总号衣的汉子，饿得只剩一把骨头，张着嘴要吃的。你身上没有吃的，只得把板子又盖了回去。");
-              render();
-              return;
-            }
-            bagRemoveUid(S, food.uid);
-            S.flags.add("officer_saved");
-            log(`地窖里蜷着个穿千总号衣的汉子，饿得只剩一把骨头。你把${WORLD.items[food.id].name}递给他，他狼吞虎咽吃了，喘匀了气，说：我身上这领铁甲，还有一支令箭，你挑一样拿去。`);
-            render();
-          }),
-          btn("不去管他", "", () => {
-            S.flags.add("officer_done");
-            S.corruption += 8;
-            log("你没去掀那块板子。走出营门老远，那喊声还跟在你身后。");
-            render();
-          }),
-        );
-      } else {
-        acts.push(
-          btn("要他的铁甲", "刀枪难入，也沉得很", () => {
-            S.flags.add("officer_done");
-            log("千总把铁甲一片片解下来交给你：我留着也走不动了。");
-            beginLootSession(["iron_armor"], { reason: "pickup" });
-            render();
-          }),
-          btn("要他的令箭", "瓮城的溃兵认得", () => {
-            S.flags.add("officer_done");
-            log("千总把令箭塞进你手里：瓮城里那帮人原是我带的兵，见了这个，兴许还认得。");
-            beginLootSession(["military_order"], { reason: "pickup" });
-            render();
-          }),
-        );
-      }
+      acts.push(
+        btn("掀开地窖", "里头的人要吃的", () => {
+          if (typeof SFX !== "undefined") SFX.play("creak");
+          if (shunned("地窖里那汉子刚抬起头，看清你的脸，便尖叫一声缩进最深处，再怎么叫也不肯出来。")) return;
+          talk("officer", officerMeet());
+        }),
+      );
     }
     /* 菜市口：刽子手打倒了，肉铺老汉开门谢你一包肉 */
     if (S.loc === "caishikou" && S.flags.has("caishikou_cleared") && !S.flags.has("butcher_thanked")) {
@@ -2438,17 +2606,41 @@
           if (shunned("门缝里那张老脸只看了你一眼，「砰」地把门板顶死了，里头传来搬东西抵门的声响。")) return;
           S.flags.add("butcher_thanked");
           S.npcFlash = { id: "butcher", loc: S.loc };
-          const fid = Math.random() < 0.5 ? "sauce_meat" : "cured_meat";
-          log(`门缝里探出一张老脸，朝刑台那边望了望，长出一口气：那东西叫你砍了？我守着这铺子，夜夜怕它来撬门。说着塞出一包${WORLD.items[fid].name}，又把门闩上了。`);
-          beginLootSession([fid], { reason: "pickup" });
           render();
+          const fid = Math.random() < 0.5 ? "sauce_meat" : "cured_meat";
+          const kid = S.flags.has("child_following");
+          talk("butcher", {
+            lines: [
+              "门缝里探出一张老脸，朝刑台那边望了望，长出一口气。",
+              "老汉：那东西叫你砍了？我守着这铺子，夜夜怕它来撬门。",
+              `他塞出一包${WORLD.items[fid].name}：拿着，我也就剩这点东西谢人了。`,
+            ],
+            choices: kid
+              ? [{ label: "说起背上的孩子", fn: () => childHandover() }, { label: "道谢", fn: () => null }]
+              : [{ label: "道谢", fn: () => null }],
+            after: () => {
+              S.npcFlash = null;
+              render();
+              beginLootSession([fid], { reason: "pickup" });
+            },
+          });
         }),
       );
     }
     /* 鼓楼：守火器库的老兵饿着肚子，拿吃的换火药、垫片、弹丸 */
     if (S.loc === "gulou" && S.flags.has("gulou_cleared")) {
       const left = TRADE_STOCK - (S.veteranSold || 0);
-      acts.push(btn("找守库的老兵", left > 0 ? `拿吃的换火药 · 他还剩 ${left} 套` : "他手里的火药换完了", () => openTrade(), left > 0 ? "" : ""));
+      acts.push(btn("找守库的老兵", left > 0 ? `拿吃的换火药 · 他还剩 ${left} 套` : "说两句", () => {
+        if (left > 0) return openTrade();
+        if (shunned("老兵抬起枪口对着你：别过来。")) return;
+        const talks = [
+          ["老兵：库里能拿的都给你了。往后我就守着这面破鼓。", "老兵：真要有什么东西摸上楼来，我就把鼓敲响。你在城里听见了，就知道我还在。"],
+          ["老兵：我在这楼上看了半个月。皇城那边夜里有光，一闪一闪的，不像灯。", "老兵：你要是往那边去，留神些。"],
+          ["老兵把枪横在膝上擦，头也没抬。", "老兵：我当了三十年兵，没守住一座城。守个库，总还守得住。"],
+        ];
+        S.vetTalk = ((S.vetTalk || 0) + 1) % talks.length;
+        talk("veteran", { lines: talks[S.vetTalk], choices: [{ label: "保重", fn: () => null }] });
+      }));
     }
     if (S.loc === "yaoju" && bagHas(S, "doctor_recipe")) {
       const need = ["honey", "huangjiu", "jujube"];
@@ -2468,6 +2660,109 @@
     }
   }
 
+  /* ---------- NPC 对话窗：头像 + 一句一句说 + 选项 ---------- */
+  /*  talk(id, step)：step = { lines: [字符串], choices: [{ label, sub, disabled, fn }], after }
+      选项的 fn 返回下一个 step 就接着说，返回空就关窗；after 在关窗后执行（发东西、开背包） */
+  let talkAfter = [];
+  function talk(id, step) {
+    let box = document.getElementById("talk-modal");
+    if (!box) {
+      document.body.insertAdjacentHTML("beforeend", `
+<div id="talk-modal" class="talk-modal" hidden>
+  <div class="talk-panel">
+    <div class="talk-who"><img class="talk-face" id="talk-face" alt="" draggable="false" /><p class="talk-name" id="talk-name"></p></div>
+    <div class="talk-main">
+      <div class="talk-lines" id="talk-lines"></div>
+      <div class="talk-choices" id="talk-choices"></div>
+    </div>
+  </div>
+</div>`);
+      box = document.getElementById("talk-modal");
+    }
+    const n = NPCS[id] || {};
+    document.getElementById("talk-face").src = n.img || "";
+    document.getElementById("talk-name").textContent = n.name || "";
+    box.dataset.id = id;
+    box.hidden = false;
+    talkAfter = [];
+    talkStep(step);
+  }
+
+  /** 一行对白：先整句翻好，再把「某某：」拆出来单独上色 */
+  function talkLine(t) {
+    const en = typeof I18N !== "undefined" && I18N.lang === "en";
+    const shown = en && I18N.tr ? I18N.tr(t) : t;
+    const p = document.createElement("p");
+    const m = /^([^：:「」"]{1,16})[：:]\s*(.+)$/.exec(shown);
+    if (m) {
+      p.className = "talk-line say";
+      const b = document.createElement("b");
+      b.textContent = m[1] + (en ? ": " : "：");
+      p.append(b, m[2]);
+    } else {
+      p.className = "talk-line";
+      p.textContent = shown;
+    }
+    return p;
+  }
+
+  function talkStep(step) {
+    const linesEl = document.getElementById("talk-lines");
+    const chEl = document.getElementById("talk-choices");
+    linesEl.innerHTML = "";
+    chEl.innerHTML = "";
+    if (step.after) talkAfter.push(step.after);
+    const lines = (step.lines || []).filter(Boolean);
+    let i = 0;
+    let timer = 0;
+    const showChoices = () => {
+      chEl.innerHTML = "";
+      const choices = step.choices && step.choices.length ? step.choices : [{ label: "……", fn: () => null }];
+      choices.forEach((c) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "talk-choice";
+        b.disabled = !!c.disabled;
+        b.innerHTML = c.label + (c.sub ? `<span class="sub">${c.sub}</span>` : "");
+        b.onclick = () => {
+          if (typeof SFX !== "undefined") SFX.play("ui");
+          const next = c.fn ? c.fn() : null;
+          if (next) talkStep(next); else closeTalk();
+        };
+        chEl.appendChild(b);
+      });
+    };
+    const next = () => {
+      if (i >= lines.length) return showChoices();
+      const t = lines[i++];
+      linesEl.appendChild(talkLine(t));
+      log(t);
+      linesEl.scrollTop = linesEl.scrollHeight;
+      timer = setTimeout(next, Math.min(1400, 380 + t.length * 22));
+    };
+    /* 点一下文字：剩下的一次说完 */
+    linesEl.onclick = () => {
+      clearTimeout(timer);
+      if (i >= lines.length) { if (!chEl.children.length) showChoices(); return; }
+      while (i < lines.length) {
+        const t = lines[i++];
+        linesEl.appendChild(talkLine(t));
+        log(t);
+      }
+      showChoices();
+    };
+    next();
+  }
+
+  function closeTalk() {
+    const box = document.getElementById("talk-modal");
+    if (box) box.hidden = true;
+    const after = talkAfter;
+    talkAfter = [];
+    render();
+    after.forEach((f) => f());
+  }
+
   /* ---------- NPC 立绘：人在场时站进场景窗 ---------- */
   const NPCS = {
     child: { name: "荒村孩童", img: "assets/portraits/npc_child.png" },
@@ -2479,7 +2774,7 @@
   function npcHere() {
     if (S.mode !== "explore") return null;
     if (S.npcFlash && S.npcFlash.loc === S.loc) return S.npcFlash.id;
-    if (S.loc === "village" && S.flags.has("hear_child") && !S.flags.has("left_child")) return "child";
+    if (S.loc === "village" && S.flags.has("child_found") && !S.flags.has("saved_child") && !S.flags.has("left_child")) return "child";
     if (S.loc === "barracks" && S.flags.has("officer_saved") && !S.flags.has("officer_done")) return "officer";
     if (S.loc === "gulou" && S.flags.has("gulou_cleared")) return "veteran";
     return null;
@@ -2489,7 +2784,17 @@
     if (!box) return;
     const id = npcHere();
     const n = id && NPCS[id];
-    if (!n) { box.hidden = true; box.dataset.id = ""; return; }
+    if (!n) {
+      /* 人走了：同一个地方就放离场动画，换了地方直接收起 */
+      if (!box.hidden && box.dataset.id && box.dataset.loc === S.loc && !box.classList.contains("leave")) {
+        box.classList.remove("enter");
+        box.classList.add("leave");
+        setTimeout(() => { box.hidden = true; box.classList.remove("leave"); box.dataset.id = ""; }, 700);
+      } else if (!box.classList.contains("leave")) { box.hidden = true; box.dataset.id = ""; }
+      return;
+    }
+    box.classList.remove("leave");
+    box.dataset.loc = S.loc;
     if (box.dataset.id !== id) {
       document.getElementById("npc-art").src = n.img;
       document.getElementById("npc-name").textContent = n.name;
@@ -2542,11 +2847,26 @@
   function startGame() {
     revealGame({ forceFade: true });
     window.scrollTo(0, 0);
-    if (!S.journal.length) {
-      log("你在野店门口跺了跺脚上的雪。进京的路有好几条，点下方「赴京图」择路而行。");
+    const firstRun = !S.journal.length;
+    if (firstRun) {
+      log("你在野店门口跺了跺脚上的雪。");
       describe(true);
     }
     render();
+    /* 新开一局：一进门就遇袭，这一场带教学 */
+    if (firstRun && !S.flags.has("intro_fight")) {
+      S.flags.add("intro_fight");
+      const t0 = Date.now();
+      const ambush = setInterval(() => {
+        /* 等场景描写浮现完（最多 4 秒）再扑出来，日志顺序才对 */
+        if (revealQueue.length && Date.now() - t0 < 4000) return;
+        clearInterval(ambush);
+        if (S.mode !== "explore" || S.combat) return;
+        const knife = (S.weaponPieces || []).find((p) => p.id === "knife");
+        if (knife) setHeldWeapon(S, knife.uid);
+        startFight("intro_ghoul");
+      }, 900);
+    }
   }
 
   document.getElementById("btn-save").onclick = () => {
@@ -2682,6 +3002,7 @@
 
   if (typeof AssetLoader !== "undefined" && loaderEl) {
     if (alStatus) alStatus.textContent = "正在备办行装…";
+    if (typeof PLATFORM !== "undefined") PLATFORM.loadingStart();
     AssetLoader.preloadAll((done, total, label) => {
       if (alBar) alBar.style.width = `${Math.round((done / total) * 100)}%`;
       if (alCount) alCount.textContent = `${done} / ${total}`;
@@ -2692,6 +3013,7 @@
         /* 短暂停顿让玩家看到 100% */
         setTimeout(showOpening, 400);
       })
+      .finally(() => { if (typeof PLATFORM !== "undefined") PLATFORM.loadingStop(); })
       .catch(() => {
         /* 出错也继续进游戏，不要卡死 */
         if (alStatus) alStatus.textContent = "部分资源未就绪，仍可开始。";
@@ -2729,6 +3051,8 @@
         return true;
       },
       closeBag: () => CombatUI.closeBag({ force: true }),
+      /** 直接开一场指定的仗（测试用） */
+      fight: (id) => { if (S.mode !== "explore") return false; startFight(id); return true; },
     };
   }
 

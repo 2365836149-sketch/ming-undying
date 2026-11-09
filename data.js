@@ -1124,6 +1124,8 @@ function locText(id, s) {
     },
     village: () => {
       if (revisit) {
+        if (s.flags.has("child_following")) return "又回到这荒村。背上的孩子把脸埋进你后颈，一声不吭。";
+        if (s.flags.has("child_safe")) return "柴房空着。那孩子如今在菜市口，有人管他一口饭吃。";
         if (s.flags.has("saved_child")) return "柴房里那孩子见你回来，又抬手朝北边指了一指。";
         if (s.flags.has("left_child")) return "那哭声早已没了，雪把巷子里的脚印盖得干干净净。";
         return "巷口那条红布还在风里晃，远处隐约有些响动，分不清是风声还是人声。";

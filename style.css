@@ -1064,8 +1064,9 @@ body.phase-night .loc-backdrop-name { color: #8a9cb0; }
   object-position: bottom center;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
-  opacity: 0.42;
-  filter: brightness(0.55) saturate(0.7) blur(0.6px);
+  /* 后排靠暗一点、略糊一点拉开前后，但人影要看得清 */
+  opacity: 0.9;
+  filter: brightness(0.72) contrast(1.1) blur(0.3px) drop-shadow(0 0 2px rgba(0, 0, 0, 0.8));
   transform-origin: 50% 100%;
   /* 不再用 left/right/height/transform 的 transition —— 位置切换一律走踱步动画，
      避免「漂移」感。仅保留 opacity/filter 用于淡入淡出。 */
