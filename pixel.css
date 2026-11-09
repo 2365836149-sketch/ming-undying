@@ -323,6 +323,9 @@ button.cmd.move:hover { background: var(--paper-deep); }
 }
 .dock-btn:hover { color: var(--paper); box-shadow: inset 0 0 0 3px var(--muted); }
 .dock-btn:active { transform: translateY(2px); }
+/* 有没存下的进度：存档按钮右上角一个朱砂小方点 */
+.dock-save { position: relative; }
+.dock-save.unsaved::after { content: ""; position: absolute; top: 6px; right: 6px; width: 6px; height: 6px; background: var(--cinnabar); }
 .dock-main { background: var(--ink); color: var(--paper); font-size: var(--fs); box-shadow: inset 0 -4px 0 #000; }
 .dock-main:hover { background: var(--ink-soft); box-shadow: inset 0 -4px 0 #000; }
 .dock-ico { width: 24px; height: 24px; }
@@ -868,6 +871,11 @@ body.bag-carrying .bag-rotate-fab { display: block; }
 }
 
 /* ================= 竖屏 / 窄屏 ================= */
+/* 小手机：底栏多了个存档，挤一挤 */
+@media (max-width: 400px) {
+  .dock { gap: 5px; }
+  .dock .dock-btn { padding: 0 7px; letter-spacing: .08em; }
+}
 @media (max-width: 860px) {
   .game { grid-template-columns: 1fr; grid-template-rows: 34vh minmax(0, 1fr) auto; gap: 8px; padding: 8px; }
   .scroll-col { grid-row: 2; }
@@ -1329,6 +1337,7 @@ body.lang-en .map-sheet .map-node { aspect-ratio: auto; min-height: clamp(30px, 
   animation: skip-in .6s 1.2s both;
 }
 .op-skip-top:hover, .op-skip-top:focus-visible { background: #8f1d14; outline: none; }
+.op-continue { right: auto; left: 16px; animation-delay: .3s; }
 @keyframes skip-in { from { opacity: 0; transform: translateY(-6px); } }
 
 /* 首战教学提示：压在战斗画面上方，不随 btl-msg 改动 */

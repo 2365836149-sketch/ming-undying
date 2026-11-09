@@ -9,7 +9,7 @@
   <title>长生劫 · 赴京</title>
   <link rel="preload" href="fonts/fusion-pixel-12px.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="style.css?v=back2" />
-  <link rel="stylesheet" href="pixel.css?v=prop1" />
+  <link rel="stylesheet" href="pixel.css?v=sv2" />
   <!-- 内联兜底：style.css 没加载时，至少藏起血丝、开场不至于散架 -->
   <style id="boot-css">
     html, body { margin: 0; background: #0c0a08; }
@@ -101,6 +101,7 @@
     </div>
     <p class="op-progress" id="op-progress"></p>
     <button type="button" class="op-skip-top" id="op-skip">跳过序章 ›</button>
+    <button type="button" class="op-skip-top op-continue" id="op-continue" hidden>‹ 继续上次</button>
   </div>
 
   <!-- 游戏本体：左场景窗 + 右残卷 + 底栏 -->
@@ -187,10 +188,10 @@
       </button>
       <pre class="dock-gear mono" id="st-gear"></pre>
       <span class="dock-sp"></span>
+      <button type="button" class="dock-btn dock-save" id="btn-save" title="存档">存档</button>
       <div class="dock-menu-wrap">
         <button type="button" class="dock-btn" id="btn-menu" aria-expanded="false">菜单</button>
         <div class="dock-menu" id="dock-menu" hidden>
-          <button type="button" class="dock-btn" id="btn-save">存档</button>
           <button type="button" class="dock-btn" id="btn-load">读档</button>
           <button type="button" class="dock-btn" id="btn-sfx" title="开关音效">音效开</button>
           <button type="button" class="dock-btn" id="btn-settings" title="音量与字号">设置</button>
@@ -272,7 +273,7 @@
 
   <script src="platform.js?v=cg2"></script>
   <script src="i18n.js?v=i4"></script>
-  <script src="i18n-en.js?v=proof1"></script>
+  <script src="i18n-en.js?v=proof3"></script>
   <script src="data.js?v=bal1"></script>
   <script src="icon-bounds.js?v=ic4"></script>
   <script src="enemy-hit-points.js?v=g2"></script>
@@ -284,10 +285,10 @@
   <script src="score.js?v=dark1"></script>
   <script src="combat.js?v=bal1"></script>
   <script src="firearm.js?v=dp1"></script>
-  <script src="combat-ui.js?v=bal1"></script>
+  <script src="combat-ui.js?v=bal2"></script>
   <script src="opening.js?v=proof1"></script>
   <script src="codex.js?v=au1"></script>
-  <script src="game.js?v=bal1"></script>
+  <script src="game.js?v=sv1"></script>
   <script src="ui-shell.js?v=au1"></script>
 </body>
 </html>

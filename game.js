@@ -151,6 +151,24 @@
     if (typeof BGM !== "undefined") BGM.play("explore");
   }
 
+  /* 有没有没存下的进度：比对存档时的时辰、日志条数和地点 */
+  let savedMark = null;
+  const progressMark = () => `${S.elapsed}|${S.journal.length}|${S.loc}|${S.hp}`;
+  function markSaved() { savedMark = progressMark(); syncSaveDot(); }
+  function unsaved() {
+    return started && S.mode !== "ending" && S.journal.length > 0 && progressMark() !== savedMark;
+  }
+  function syncSaveDot() {
+    const b = document.getElementById("btn-save");
+    if (b) b.classList.toggle("unsaved", unsaved());
+  }
+  let started = false;
+  window.addEventListener("beforeunload", (e) => {
+    if (!unsaved()) return;
+    e.preventDefault();
+    e.returnValue = "";
+  });
+
   function tryLoadSave({ fromDeath = false } = {}) {
     const raw = localStorage.getItem(SAVE);
     if (!raw) {
@@ -159,6 +177,8 @@
     }
     try {
       restore(JSON.parse(raw));
+      started = true;
+      markSaved();
       CombatUI.close();
       document.getElementById("opening").hidden = true;
       hideDeathScreen().then(() => {
@@ -1380,12 +1400,21 @@
     scrollJournalToEnd._t2 = setTimeout(go, 360);
   }
 
+  let lastCmdAt = 0;
   function btn(label, sub, fn, cls = "") {
     const b = document.createElement("button");
     b.type = "button";
     b.className = "cmd " + cls;
     b.innerHTML = label + (sub ? `<span class="sub">${sub}</span>` : "");
-    b.addEventListener("click", fn);
+    b.addEventListener("click", (e) => {
+      /* 上一个指令的字还在一句句浮现：这一下先全部显出来，再点才执行 */
+      if (revealTimer || revealQueue.length) { flushReveal(); return; }
+      /* 手快连点两下，只算一下 */
+      const now = performance.now();
+      if (now - lastCmdAt < 250) return;
+      lastCmdAt = now;
+      fn(e);
+    });
     return b;
   }
 
@@ -2812,6 +2841,7 @@
   }
 
   function render() {
+    syncSaveDot();
     panels();
     syncNpc();
     renderMap();
@@ -2852,6 +2882,7 @@
   }
 
   function startGame() {
+    started = true;
     revealGame({ forceFade: true });
     window.scrollTo(0, 0);
     const firstRun = !S.journal.length;
@@ -2864,11 +2895,13 @@
     if (firstRun && !S.flags.has("intro_fight")) {
       S.flags.add("intro_fight");
       const t0 = Date.now();
+      const run = S;
       const ambush = setInterval(() => {
         /* 等场景描写浮现完（最多 4 秒）再扑出来，日志顺序才对 */
         if (revealQueue.length && Date.now() - t0 < 4000) return;
         clearInterval(ambush);
-        if (S.mode !== "explore" || S.combat) return;
+        /* 这期间读了档或重开了，这一局就不是那个新开局了 */
+        if (S !== run || S.mode !== "explore" || S.combat) return;
         const knife = (S.weaponPieces || []).find((p) => p.id === "knife");
         if (knife) setHeldWeapon(S, knife.uid);
         startFight("intro_ghoul");
@@ -2882,6 +2915,7 @@
       return;
     }
     localStorage.setItem(SAVE, JSON.stringify(snap()));
+    markSaved();
     toast("已存档");
     if (typeof SFX !== "undefined") SFX.play("ui");
   };
@@ -2892,6 +2926,7 @@
     const ask = "确定要重新开始游戏吗？当前进度将丢失。";
     if (confirm(typeof I18N !== "undefined" ? I18N.tr(ask) : ask)) {
       localStorage.removeItem(SAVE);
+      started = false;
       location.reload();
     }
   };
@@ -3005,6 +3040,22 @@
     openingApi = runOpening({
       onDone: () => startGame(),
     });
+    /* 上次留了档：开场右边是跳过，左边是直接接着玩 */
+    const cont = document.getElementById("op-continue");
+    let hasSave = false;
+    try { hasSave = !!localStorage.getItem(SAVE); } catch (_) {}
+    if (cont && op) {
+      cont.hidden = !hasSave;
+      cont.onclick = () => {
+        cont.hidden = true;
+        op.classList.add("outro");
+        setTimeout(() => {
+          op.hidden = true;
+          op.classList.remove("outro", "is-visible");
+          tryLoadSave();
+        }, 500);
+      };
+    }
   }
 
   if (typeof AssetLoader !== "undefined" && loaderEl) {

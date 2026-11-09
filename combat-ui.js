@@ -3158,10 +3158,10 @@ const CombatUI = (() => {
         ? "按住鼠标或手指，<b>从它身上划过去</b>。划过发亮的破绽，伤害更高。"
         : "点下方的<b>「攻击」</b>出刀。");
     } else if (t.step === 2) {
-      if (rt && rt.windup) coach("<b>点那个圈，或按空格</b>格挡。圈变成金色的那一下最好。");
-      else coach(t.missed ? "慢了一步。它还会再扑，<b>圈变金色时</b>点它。" : "它要扑上来了，盯住它……");
+      if (rt && rt.windup) coach("<b>点那个圈，或按空格</b>格挡。外圈缩到和内圈重合的那一下最好。");
+      else coach(t.missed ? "慢了一步。它还会再扑，<b>两圈重合时</b>点它。" : "它要扑上来了，盯住它……");
     } else if (t.step === 3) {
-      coach(performance.now() < t.until ? "挡住了！圈变金色时挡，还能趁机反击。<b>把它砍倒。</b>" : null);
+      coach(performance.now() < t.until ? "挡住了！两圈重合时挡，还能趁机反击。<b>把它砍倒。</b>" : null);
     }
   }
 
@@ -3324,7 +3324,7 @@ const CombatUI = (() => {
     ring.onpointerdown = (ev) => { ev.preventDefault(); ev.stopPropagation(); tryParry(); };
     wrap.appendChild(ring);
     lastRingAt = p;
-    /* 到了完美时机：外框变金、闪 */
+    /* 到了完美时机：外框缩进内圈、变白、闪 */
     clearTimeout(rt.perfT);
     rt.perfT = setTimeout(() => ring.classList.add("perfect-now"), Math.max(0, rt.windup.dur * (1 - perfFrac)));
   }
