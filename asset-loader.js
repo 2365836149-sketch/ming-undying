@@ -39,36 +39,44 @@
   }
 
 
-  /** 主预加载入口：图片 + 音效。音乐不阻塞，进游戏后后台加载 */
-  async function preloadAll(onProgress) {
-    const images = collectImageUrls();
-    let total = images.length;
-    let done = 0;
+  /** 开头用得上的：主角、起点场景、开局那只变异村民。只等这几张 */
+  function criticalImageUrls() {
+    const urls = new Set();
+    const hero = document.getElementById("hero-art");
+    if (hero && hero.src) urls.add(hero.src);
+    if (typeof WORLD !== "undefined" && WORLD.startLoc) urls.add(`assets/locations/${WORLD.startLoc}.jpg`);
+    if (typeof COMBAT !== "undefined" && COMBAT.portraits && COMBAT.portraits.it1) urls.add(COMBAT.portraits.it1);
+    return Array.from(urls);
+  }
 
-    /* 并行加载图片 */
-    const imgPromises = images.map((u) =>
+  /** 其余资源后台慢慢拉：同时最多 4 个，免得和眼前要用的抢带宽 */
+  function backgroundLoad(urls) {
+    const queue = urls.slice();
+    const worker = () => {
+      const u = queue.shift();
+      if (!u) return Promise.resolve();
+      return preloadImage(u).then(worker);
+    };
+    for (let i = 0; i < 4; i++) worker();
+  }
+
+  /** 主预加载入口：只等开头那几张图（最多等 maxWait 毫秒），其余图片、音效进游戏后后台加载。
+      以前要等全部 8MB 下完，国内连 GitHub Pages 慢，会一直卡在加载页 */
+  async function preloadAll(onProgress, maxWait = 10000) {
+    const critical = criticalImageUrls();
+    const rest = collectImageUrls().filter((u) => !critical.includes(u));
+    const total = critical.length;
+    let done = 0;
+    const crit = Promise.all(critical.map((u) =>
       preloadImage(u).then((r) => {
         done += 1;
         if (onProgress) onProgress(done, total, "img:" + r.url);
       }),
-    );
-
-    /* 音效预加载（SFX.preloadAll 已存在） */
-    let sfxPromise = Promise.resolve();
-    if (typeof SFX !== "undefined" && SFX.preloadAll) {
-      total += 1;
-      sfxPromise = SFX.preloadAll().then(() => {
-        done += 1;
-        if (onProgress) onProgress(done, total, "sfx");
-      });
-    }
-
-    /* 音乐预加载：不阻塞进度条，后台触发缓存，进游戏后自然可用 */
-    if (typeof BGM !== "undefined" && BGM.preloadAll) {
-      BGM.preloadAll();
-    }
-
-    await Promise.all([...imgPromises, sfxPromise]);
+    ));
+    await Promise.race([crit, new Promise((r) => setTimeout(r, maxWait))]);
+    backgroundLoad(rest);
+    if (typeof SFX !== "undefined" && SFX.preloadAll) SFX.preloadAll().catch(() => {});
+    if (typeof BGM !== "undefined" && BGM.preloadAll) BGM.preloadAll();
   }
 
   window.AssetLoader = { preloadAll, collectImageUrls };
