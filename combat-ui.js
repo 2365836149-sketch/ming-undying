@@ -2637,6 +2637,8 @@ const CombatUI = (() => {
       api.log((mult > 1 ? `趁势反击！${line}` : line) + vsNote);
     } else {
       setMsg(why === "time" ? "迟了，没能出刀" : "砍空了！");
+      /* 空挥也费力气 */
+      if (why !== "time" && w.stamina) s.stamina = Math.max(0, s.stamina - Math.ceil(w.stamina * 0.6));
       api.log(why === "time" ? "时机已过，这一刀没能落下。" : `你挥起${w.name}，却砍了个空。`);
       pulseArt("whiff");
       flashSlashLayer("slash-whiff");
@@ -2996,6 +2998,12 @@ const CombatUI = (() => {
         if (counterMult() > 1) consumeCounter();
         pushCharge(shootState.enemyIdx, band === 0 ? 0.45 : 0.3);
         if (enemy.hp <= 0) killed = true;
+        else {
+          /* 铳响震人：打断蓄力，震住一阵 */
+          enemy.charge = 0;
+          enemy.stun = Math.max(enemy.stun || 0, band === 0 ? 2.5 : 1.8);
+          api.log(`${enemy.name}被铳声震住，扑势全断。`);
+        }
       }
     }
     const aim = $("btl-aim");

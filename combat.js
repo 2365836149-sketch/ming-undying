@@ -43,7 +43,7 @@ const COMBAT = {
     windupMs: 1150, /* 格挡圈从出现到落下 */
     perfectMs: 300, /* 圈缩到核心的最后这段算完美格挡 */
     bagScale: 0.5, /* 翻行囊时时间流速 */
-    staminaRegen: 4, /* 战斗中每秒回体 */
+    staminaRegen: 2.5, /* 战斗中每秒回体 */
     counterMs: 4000, /* 完美格挡后反击良机持续 */
     sideRate: 0.7, /* 没被你盯着的敌人蓄力慢一些 */
     afterStrikeCap: 0.6, /* 一个扑完，其余的蓄力最多留到六成，免得连环挨咬 */
@@ -642,9 +642,10 @@ function staminaDamageMultiplier(state) {
   const max = maxStaminaOf(state);
   if (max <= 0) return 1;
   const r = state.stamina / max;
-  if (r > 0.2) return 1;
-  if (r < 0.05) return 0.4;
-  const t = (r - 0.05) / 0.15; /* 0..1 */
+  /* 三成以下就开始手软，一成以下只剩四成力 */
+  if (r > 0.3) return 1;
+  if (r < 0.1) return 0.4;
+  const t = (r - 0.1) / 0.2; /* 0..1 */
   return 0.4 + t * 0.6;
 }
 
@@ -869,10 +870,10 @@ const KIND_INFO = {
   swift: { name: "疾行", weak: "怕刺" },
 };
 const MATCHUP = {
-  slash: { flesh: 1.25, armor: 0.6, swift: 1 },
+  slash: { flesh: 1.25, armor: 0.45, swift: 1 },
   blunt: { flesh: 0.9, armor: 1.3, swift: 1 },
-  pierce: { flesh: 1, armor: 0.9, swift: 1.4 },
-  fire: { flesh: 1, armor: 1.2, swift: 1 },
+  pierce: { flesh: 1, armor: 0.75, swift: 1.4 },
+  fire: { flesh: 1, armor: 1.4, swift: 1 },
 };
 const enemyKind = (e) => (e && (e.kind || ENEMY_KIND[e.name])) || "flesh";
 function matchupMult(dmgType, e) {

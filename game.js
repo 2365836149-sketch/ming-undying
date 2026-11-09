@@ -1598,10 +1598,17 @@
         log(`抵达【${WORLD.locs[link.to].name}】。`);
         describe(true);
       }
+      /* 披甲的敌人身上常有火药、垫片、弹丸，给火器续上 */
+      const ammo = [];
+      if (result === "win" && c.enemies.some((e) => enemyKind(e) === "armor") && Math.random() < (WORLD.loot.ammoChance || 0)) {
+        const n = 2 + Math.floor(Math.random() * 3);
+        ammo.push(["powder", n], ["wad", n], ["shot", n]);
+        log(`你从它们的腰囊里摸出火药、垫片、弹丸各 ${n} 份。`, "sys");
+      }
       if (!checkEnd()) {
         render();
-        if (lootIds.length) {
-          beginLootSession(lootIds, { reason: "loot" });
+        if (lootIds.length || ammo.length) {
+          beginLootSession(lootIds, { reason: "loot", stacks: ammo });
         }
         if (c.id === "intro_ghoul") {
           log("鸟铳还在兵器架上，交战时点「换武」就能换上。进京的路有好几条，点下方「赴京图」择路而行。", "sys");

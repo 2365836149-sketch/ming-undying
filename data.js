@@ -13,7 +13,7 @@ const WORLD = {
   armorRack: { w: 2, h: 1 },
   /* 饱腹：赶路、搜索、打架、歇脚都会饿；饿了回体慢，饿极了掉血 */
   maxSatiety: 100,
-  hunger: { start: 70, perMin: 2, search: 1, rest: 4, fight: 5, hungry: 30, starving: 10, starveHp: 4 },
+  hunger: { start: 70, perMin: 1.3, search: 1, rest: 4, fight: 3, hungry: 30, starving: 10, starveHp: 4 },
   /* 负重上限；不超过六成算轻装，超过上限算沉重 */
   carryCap: 20,
   lightRatio: 0.6,
@@ -827,8 +827,10 @@ const WORLD = {
       mid: ["ration", "jerky", "cured_meat", "millet_porridge", "tofu", "pickled_melon", "dried_meicai", "huangjiu", "water", "dried_persimmon", "malt_candy"],
       late: ["jerky", "sauce_meat", "rice", "honey", "nuerhong", "huangjiu", "malt_candy"],
     },
-    searchFoodChance: 0.3,
-    fightFoodChance: 0.25,
+    searchFoodChance: 0.5,
+    fightFoodChance: 0.4,
+    /* 披甲的（溃兵、城门尸卫、锦衣卫）身上常揣着火药弹丸 */
+    ammoChance: 0.45,
   },
 
   endings: {
